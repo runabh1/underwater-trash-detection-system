@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Underwater Trash Detection System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #006994 0%, #003366 50%, #001a33 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .ocean-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 200, 255, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(100, 180, 255, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(80, 160, 255, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: oceanWave 8s ease-in-out infinite;
+        }
+
+        @keyframes oceanWave {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, #ffffff, #87ceeb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .controls-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            flex: 1;
+            min-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .control-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .control-card h3 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #87ceeb;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #87ceeb;
+            background: rgba(135, 206, 235, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #87ceeb;
+            background: rgba(135, 206, 235, 0.2);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #006994, #87ceeb);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .webcam-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #webcam {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+        }
+
+        .webcam-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .detection-box {
+            position: absolute;
+            border: 2px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        .results-section {
+            margin-top: 40px;
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .results-header h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #87ceeb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #87ceeb;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .frames-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .frame-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .frame-card:hover {
+            transform: scale(1.05);
+        }
+
+        .frame-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .frame-info {
+            padding: 15px;
+        }
+
+        .frame-info h4 {
+            margin-bottom: 10px;
+            color: #87ceeb;
+        }
+
+        .detection-count {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        .status {
+            text-align: center;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .status.success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+        }
+
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.5);
+        }
+
+        .bubbles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            top: 0;
+            left: 0;
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: -100px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: rise 10s infinite ease-in;
+        }
+
+        .bubble:nth-child(1) {
+            width: 40px;
+            height: 40px;
+            left: 10%;
+            animation-duration: 8s;
+        }
+
+        .bubble:nth-child(2) {
+            width: 20px;
+            height: 20px;
+            left: 20%;
+            animation-duration: 5s;
+            animation-delay: 1s;
+        }
+
+        .bubble:nth-child(3) {
+            width: 50px;
+            height: 50px;
+            left: 35%;
+            animation-duration: 7s;
+            animation-delay: 2s;
+        }
+
+        .bubble:nth-child(4) {
+            width: 80px;
+            height: 80px;
+            left: 50%;
+            animation-duration: 11s;
+            animation-delay: 0s;
+        }
+
+        .bubble:nth-child(5) {
+            width: 35px;
+            height: 35px;
+            left: 55%;
+            animation-duration: 6s;
+            animation-delay: 1s;
+        }
+
+        .bubble:nth-child(6) {
+            width: 45px;
+            height: 45px;
+            left: 65%;
+            animation-duration: 8s;
+            animation-delay: 3s;
+        }
+
+        .bubble:nth-child(7) {
+            width: 25px;
+            height: 25px;
+            left: 70%;
+            animation-duration: 7s;
+            animation-delay: 2s;
+        }
+
+        .bubble:nth-child(8) {
+            width: 80px;
+            height: 80px;
+            left: 80%;
+            animation-duration: 6s;
+            animation-delay: 2s;
+        }
+
+        .bubble:nth-child(9) {
+            width: 15px;
+            height: 15px;
+            left: 70%;
+            animation-duration: 9s;
+            animation-delay: 0s;
+        }
+
+        .bubble:nth-child(10) {
+            width: 50px;
+            height: 50px;
+            left: 85%;
+            animation-duration: 5s;
+            animation-delay: 3s;
+        }
+
+        @keyframes rise {
+            0% {
+                bottom: -100px;
+                transform: translateX(0);
+            }
+            50% {
+                transform: translate(100px, -500px);
+            }
+            100% {
+                bottom: 1080px;
+                transform: translateX(-200px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .controls-section {
+                flex-direction: column;
+            }
+            
+            .control-card {
+                min-width: auto;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .frames-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ocean-bg"></div>
+    <div class="bubbles">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Underwater Trash Detection</h1>
+            <p>Protecting our oceans, one detection at a time</p>
+        </div>
+
+        <div class="controls-section">
+            <div class="control-card">
+                <h3>📹 Upload Video</h3>
+                <div class="upload-area" id="uploadArea">
+                    <p>📁 Drag and drop your video here or click to browse</p>
+                    <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 10px;">
+                        Supported formats: MP4, AVI, MOV
+                    </p>
+                </div>
+                <input type="file" id="videoInput" class="file-input" accept="video/*">
+                <button class="btn" id="uploadBtn" onclick="document.getElementById('videoInput').click()">
+                    Choose Video File
+                </button>
+                <button class="btn" id="processBtn" style="display: none;">Process Video</button>
+            </div>
+
+            <div class="control-card">
+                <h3>📷 Live Detection</h3>
+                <div class="webcam-container">
+                    <video id="webcam" autoplay muted></video>
+                    <canvas id="webcamCanvas" class="webcam-overlay"></canvas>
+                </div>
+                <button class="btn" id="startWebcamBtn">Start Webcam</button>
+                <button class="btn" id="stopWebcamBtn" style="display: none;">Stop Webcam</button>
+            </div>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <h2>🔍 Detection Results</h2>
+                <p id="resultsInfo"></p>
+            </div>
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Processing video frames...</p>
+            </div>
+            <div id="framesGrid" class="frames-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        let videoStream = null;
+        let webcamInterval = null;
+        let isProcessing = false;
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const videoInput = document.getElementById('videoInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const processBtn = document.getElementById('processBtn');
+        const startWebcamBtn = document.getElementById('startWebcamBtn');
+        const stopWebcamBtn = document.getElementById('stopWebcamBtn');
+        const webcam = document.getElementById('webcam');
+        const webcamCanvas = document.getElementById('webcamCanvas');
+        const status = document.getElementById('status');
+        const resultsSection = document.getElementById('resultsSection');
+        const loading = document.getElementById('loading');
+        const framesGrid = document.getElementById('framesGrid');
+        const resultsInfo = document.getElementById('resultsInfo');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('video/')) {
+                handleVideoFile(files[0]);
+            }
+        });
+
+        videoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleVideoFile(e.target.files[0]);
+            }
+        });
+
+        function handleVideoFile(file) {
+            showStatus(`Selected video: ${file.name}`, 'success');
+            processBtn.style.display = 'inline-block';
+            processBtn.onclick = () => processVideo(file);
+        }
+
+        async function processVideo(file) {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            showStatus('Processing video...', 'success');
+            loading.style.display = 'block';
+            resultsSection.style.display = 'block';
+            framesGrid.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const response = await fetch('/upload_video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                displayResults(result);
+                showStatus(`Processed ${result.processed_frames} frames successfully!`, 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(result) {
+            resultsInfo.textContent = `Total frames: ${result.total_frames} | Processed frames: ${result.processed_frames}`;
+            
+            framesGrid.innerHTML = '';
+            
+            result.frames.forEach(frame => {
+                const frameCard = document.createElement('div');
+                frameCard.className = 'frame-card';
+                
+                frameCard.innerHTML = `
+                    <img src="data:image/jpeg;base64,${frame.image}" alt="Frame ${frame.frame_number}" class="frame-image">
+                    <div class="frame-info">
+                        <h4>Frame ${frame.frame_number}</h4>
+                        <span class="detection-count">${frame.detections} trash items detected</span>
+                    </div>
+                `;
+                
+                framesGrid.appendChild(frameCard);
+            });
+        }
+
+        // Webcam functionality
+        startWebcamBtn.addEventListener('click', startWebcam);
+        stopWebcamBtn.addEventListener('click', stopWebcam);
+
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 640, 
+                        height: 480,
+                        facingMode: 'environment'
+                    } 
+                });
+                
+                webcam.srcObject = videoStream;
+                startWebcamBtn.style.display = 'none';
+                stopWebcamBtn.style.display = 'inline-block';
+                
+                // Start detection loop
+                webcamInterval = setInterval(processWebcamFrame, 1000); // Process every second
+                
+                showStatus('Webcam started successfully!', 'success');
+            } catch (error) {
+                showStatus(`Error starting webcam: ${error.message}`, 'error');
+            }
+        }
+
+        function stopWebcam() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            
+            if (webcamInterval) {
+                clearInterval(webcamInterval);
+                webcamInterval = null;
+            }
+            
+            webcam.srcObject = null;
+            startWebcamBtn.style.display = 'inline-block';
+            stopWebcamBtn.style.display = 'none';
+            
+            // Clear canvas
+            const ctx = webcamCanvas.getContext('2d');
+            ctx.clearRect(0, 0, webcamCanvas.width, webcamCanvas.height);
+            
+            showStatus('Webcam stopped', 'success');
+        }
+
+        async function processWebcamFrame() {
+            if (!videoStream || webcam.videoWidth === 0) return;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = webcam.videoWidth;
+            canvas.height = webcam.videoHeight;
+            
+            ctx.drawImage(webcam, 0, 0);
+            
+            const frameData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            try {
+                const response = await fetch('/process_frame', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ frame: frameData })
+                });
+                
+                const result = await response.json();
+                
+                if (result.detections) {
+                    drawDetections(result.detections);
+                }
+            } catch (error) {
+                console.error('Error processing frame:', error);
+            }
+        }
+
+        function drawDetections(detections) {
+            const ctx = webcamCanvas.getContext('2d');
+            const rect = webcam.getBoundingClientRect();
+            
+            // Set canvas size to match video
+            webcamCanvas.width = rect.width;
+            webcamCanvas.height = rect.height;
+            
+            // Clear previous drawings
+            ctx.clearRect(0, 0, webcamCanvas.width, webcamCanvas.height);
+            
+            detections.forEach(detection => {
+                const [x1, y1, x2, y2] = detection.bbox;
+                const confidence = detection.confidence;
+                
+                // Scale coordinates to canvas size
+                const scaleX = webcamCanvas.width / webcam.videoWidth;
+                const scaleY = webcamCanvas.height / webcam.videoHeight;
+                
+                const scaledX1 = x1 * scaleX;
+                const scaledY1 = y1 * scaleY;
+                const scaledX2 = x2 * scaleX;
+                const scaledY2 = y2 * scaleY;
+                
+                // Draw bounding box
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+                
+                // Draw label
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '12px Arial';
+                ctx.fillText(`Trash: ${confidence.toFixed(2)}`, scaledX1, scaledY1 - 5);
+            });
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            showStatus('Welcome to Underwater Trash Detection System!', 'success');
+        });
+    </script>
+</body>
+</html> 
