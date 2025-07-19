@@ -6,7 +6,7 @@ from PIL import Image
 import base64
 import io
 import time
-from trash_classes import get_class_name_short, get_class_color
+from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
 
 # Try to import OpenCV with error handling
 try:
@@ -103,6 +103,12 @@ def load_model():
     
     try:
         model = YOLO('best.pt')
+        
+        # Update mapping if model has class names
+        if hasattr(model, 'names'):
+            update_mapping_from_model(model.names)
+            st.success(f"✅ Model loaded with {len(model.names)} classes: {list(model.names)}")
+        
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")

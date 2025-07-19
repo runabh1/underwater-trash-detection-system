@@ -10,13 +10,24 @@ import json
 from ultralytics import YOLO
 import tempfile
 import uuid
-from trash_classes import get_class_name_short, get_class_color
+from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
 
 app = Flask(__name__)
 CORS(app)
 
 # Load the trained model
 model = YOLO('best.pt')
+
+# Debug: Print model class names if available and update mapping
+try:
+    if hasattr(model, 'names'):
+        print("🔍 Model class names:", model.names)
+        # Update our mapping to match the model's actual class names
+        update_mapping_from_model(model.names)
+    else:
+        print("⚠️ No class names found in model")
+except Exception as e:
+    print(f"❌ Error accessing model names: {e}")
 
 # Create uploads directory if it doesn't exist
 UPLOAD_FOLDER = 'uploads'
@@ -83,6 +94,9 @@ def process_video(video_path):
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         confidence = box.conf[0].cpu().numpy()
                         class_id = int(box.cls[0].cpu().numpy())
+                        
+                        # Debug: Print class ID being detected
+                        print(f"🔍 Detected Class ID: {class_id}")
                         
                         # Get class name and color
                         class_name = get_class_name_short(class_id)
