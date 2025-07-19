@@ -3,7 +3,9 @@ services:
     name: underwater-trash-detection
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.7 
+        value: 3.11.7
+    healthCheckPath: /
+    autoDeploy: true 
