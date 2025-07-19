@@ -36,6 +36,9 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Store processed frames for video recreation
+processed_frames_storage = {}
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -74,6 +77,12 @@ def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
     frame_results = []
     frame_count = 0
+    processed_frames = []  # Store frames for video recreation
+    
+    # Get original video properties
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
     while True:
         ret, frame = cap.read()
@@ -82,6 +91,9 @@ def process_video(video_path):
         
         # Process every 5th frame to avoid too many results
         if frame_count % 5 == 0:
+            # Create a copy of the frame for processing
+            processed_frame = frame.copy()
+            
             # Run inference on the frame
             results = model(frame)
             
@@ -102,16 +114,16 @@ def process_video(video_path):
                         class_name = get_class_name_short(class_id)
                         color = get_class_color(class_id)
                         
-                        # Draw bounding box on frame
-                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                        # Draw bounding box on processed frame
+                        cv2.rectangle(processed_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                         
                         # Add label
                         label = f"{class_name}: {confidence:.2f}"
-                        cv2.putText(frame, label, (int(x1), int(y1) - 10), 
+                        cv2.putText(processed_frame, label, (int(x1), int(y1) - 10), 
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
             # Convert frame to base64 for frontend
-            _, buffer = cv2.imencode('.jpg', frame)
+            _, buffer = cv2.imencode('.jpg', processed_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
             
             frame_results.append({
@@ -119,15 +131,69 @@ def process_video(video_path):
                 'image': frame_base64,
                 'detections': len(results[0].boxes) if results[0].boxes is not None else 0
             })
+            
+            # Store processed frame for video recreation
+            processed_frames.append(processed_frame)
         
         frame_count += 1
     
     cap.release()
+    
+    # Generate unique session ID for this processing
+    session_id = str(uuid.uuid4())
+    
+    # Store processed frames and video properties
+    processed_frames_storage[session_id] = {
+        'frames': processed_frames,
+        'fps': fps,
+        'width': width,
+        'height': height,
+        'total_frames': frame_count,
+        'processed_frames': len(processed_frames)
+    }
+    
     return {
         'frames': frame_results,
         'total_frames': frame_count,
-        'processed_frames': len(frame_results)
+        'processed_frames': len(frame_results),
+        'session_id': session_id
     }
+
+@app.route('/recreate_video', methods=['POST'])
+def recreate_video():
+    """Recreate video from processed frames"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        
+        if not session_id or session_id not in processed_frames_storage:
+            return jsonify({'error': 'Invalid session ID or no processed frames found'}), 400
+        
+        storage_data = processed_frames_storage[session_id]
+        frames = storage_data['frames']
+        fps = storage_data['fps']
+        width = storage_data['width']
+        height = storage_data['height']
+        
+        # Create temporary video file
+        video_filename = f"recreated_video_{session_id}.mp4"
+        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+        
+        # Initialize video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+        
+        # Write frames to video
+        for frame in frames:
+            out.write(frame)
+        
+        out.release()
+        
+        # Return video file
+        return send_file(video_path, as_attachment=True, download_name=f"detected_trash_video.mp4")
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/process_frame', methods=['POST'])
 def process_frame():

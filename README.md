@@ -11,6 +11,7 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 - 🔍 **Frame-by-Frame Analysis**: Detailed results showing each processed frame with detected trash
 - 📊 **Grid Display**: Results displayed in an organized grid layout
 - 🎯 **Bounding Box Visualization**: Color-coded bounding boxes around detected trash items with specific class names
+- 🎬 **Video Recreation**: Recreate the processed video with detection overlays for download
 - 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
 
 ## Prerequisites
@@ -98,6 +99,7 @@ The system can detect and classify the following 15 types of underwater trash:
    - Supported formats: MP4, AVI, MOV
    - Click "Process Video" to analyze the video
    - View results in the grid below
+   - Click "Recreate Video with Detections" to download the processed video with detection overlays
 
    ### Live Webcam Detection
    - Click "Start Webcam" to begin live detection
@@ -113,6 +115,7 @@ The system can detect and classify the following 15 types of underwater trash:
 3. Your YOLO model detects trash in each frame
 4. Bounding boxes are drawn around detected objects
 5. Results are displayed in a grid format with frame numbers and detection counts
+6. Use the "Recreate Video" feature to download the processed video with detection overlays
 
 ### Live Detection
 1. Start the webcam through the browser

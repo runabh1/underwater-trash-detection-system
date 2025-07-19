@@ -267,6 +267,21 @@
             background: rgba(255, 0, 0, 0.2);
             border: 1px solid rgba(255, 0, 0, 0.5);
         }
+        
+        #recreateVideoBtn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            font-size: 1.1rem;
+            padding: 15px 30px;
+        }
+        
+        #recreateVideoBtn:hover {
+            background: linear-gradient(45deg, #218838, #1ea085);
+        }
+        
+        #recreateVideoBtn:disabled {
+            background: linear-gradient(45deg, #6c757d, #6c757d);
+            cursor: not-allowed;
+        }
 
         .bubbles {
             position: fixed;
@@ -455,11 +470,15 @@
             <div class="results-header">
                 <h2>🔍 Detection Results</h2>
                 <p id="resultsInfo"></p>
+                <button class="btn" id="recreateVideoBtn" style="display: none; margin-top: 20px;">
+                    🎬 Recreate Video with Detections
+                </button>
             </div>
             <div id="loading" class="loading" style="display: none;">
                 <div class="spinner"></div>
                 <p>Processing video frames...</p>
             </div>
+            <div id="videoRecreationStatus" class="status" style="display: none;"></div>
             <div id="framesGrid" class="frames-grid"></div>
         </div>
     </div>
@@ -483,6 +502,11 @@
         const loading = document.getElementById('loading');
         const framesGrid = document.getElementById('framesGrid');
         const resultsInfo = document.getElementById('resultsInfo');
+        const recreateVideoBtn = document.getElementById('recreateVideoBtn');
+        const videoRecreationStatus = document.getElementById('videoRecreationStatus');
+        
+        // Store current session ID for video recreation
+        let currentSessionId = null;
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -552,6 +576,12 @@
         function displayResults(result) {
             resultsInfo.textContent = `Total frames: ${result.total_frames} | Processed frames: ${result.processed_frames}`;
             
+            // Store session ID for video recreation
+            currentSessionId = result.session_id;
+            
+            // Show recreate video button
+            recreateVideoBtn.style.display = 'inline-block';
+            
             framesGrid.innerHTML = '';
             
             result.frames.forEach(frame => {
@@ -573,6 +603,9 @@
         // Webcam functionality
         startWebcamBtn.addEventListener('click', startWebcam);
         stopWebcamBtn.addEventListener('click', stopWebcam);
+        
+        // Video recreation functionality
+        recreateVideoBtn.addEventListener('click', recreateVideo);
 
         async function startWebcam() {
             try {
@@ -695,6 +728,58 @@
             
             setTimeout(() => {
                 status.style.display = 'none';
+            }, 5000);
+        }
+        
+        async function recreateVideo() {
+            if (!currentSessionId) {
+                showStatus('No processed video available for recreation', 'error');
+                return;
+            }
+            
+            showVideoRecreationStatus('Creating video with detections...', 'success');
+            recreateVideoBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/recreate_video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+                
+                if (response.ok) {
+                    // Create download link
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'detected_trash_video.mp4';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    showVideoRecreationStatus('Video created successfully! Download started.', 'success');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to recreate video');
+                }
+            } catch (error) {
+                showVideoRecreationStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                recreateVideoBtn.disabled = false;
+            }
+        }
+        
+        function showVideoRecreationStatus(message, type) {
+            videoRecreationStatus.textContent = message;
+            videoRecreationStatus.className = `status ${type}`;
+            videoRecreationStatus.style.display = 'block';
+            
+            setTimeout(() => {
+                videoRecreationStatus.style.display = 'none';
             }, 5000);
         }
 
