@@ -21,6 +21,7 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 
 ## Installation
 
+### Option 1: Flask Web Application
 1. **Clone or download this project** to your local machine
 
 2. **Install Python dependencies**:
@@ -31,8 +32,20 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 3. **Ensure your model file is in place**:
    - Make sure `best.pt` is in the root directory of the project
 
+### Option 2: Streamlit Application (Recommended)
+1. **Clone or download this project** to your local machine
+
+2. **Install Streamlit dependencies**:
+   ```bash
+   pip install -r requirements_streamlit.txt
+   ```
+
+3. **Ensure your model file is in place**:
+   - Make sure `best.pt` is in the root directory of the project
+
 ## Usage
 
+### Flask Web Application
 1. **Start the application**:
    ```bash
    python app.py
@@ -41,6 +54,21 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 2. **Open your web browser** and navigate to:
    ```
    http://localhost:5000
+   ```
+
+### Streamlit Application (Recommended)
+1. **Start the Streamlit application**:
+   ```bash
+   python run_streamlit.py
+   ```
+   Or directly:
+   ```bash
+   streamlit run streamlit_app.py
+   ```
+
+2. **Open your web browser** and navigate to:
+   ```
+   http://localhost:8501
    ```
 
 3. **Choose your detection method**:
