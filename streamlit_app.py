@@ -173,8 +173,7 @@ with tab1:
         if st.button("🔍 Process Video", type="primary"):
             if not OPENCV_AVAILABLE:
                 st.error("OpenCV is not available. Video processing requires OpenCV.")
-                return
-            if st.session_state.model is None:
+            elif st.session_state.model is None:
                 st.error("Model not loaded. Please check your model file.")
             else:
                 with st.spinner("Processing video frames..."):
@@ -271,8 +270,7 @@ with tab2:
         if st.button("🔍 Detect Trash", type="primary"):
             if not OPENCV_AVAILABLE:
                 st.error("OpenCV is not available. Image processing requires OpenCV.")
-                return
-            if st.session_state.model is None:
+            elif st.session_state.model is None:
                 st.error("Model not loaded. Please check your model file.")
             else:
                 with st.spinner("Detecting trash..."):
