@@ -1,13 +1,43 @@
 import streamlit as st
-import cv2
 import numpy as np
 import tempfile
 import os
 from PIL import Image
 import base64
-from ultralytics import YOLO
 import io
 import time
+
+# Try to import OpenCV with error handling
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    st.error("""
+    ⚠️ OpenCV (cv2) is not available. This might be due to deployment environment limitations.
+    
+    **Solutions:**
+    1. Try refreshing the page
+    2. Check if the app is still deploying
+    3. Contact support if the issue persists
+    
+    The app will work with limited functionality without OpenCV.
+    """)
+    OPENCV_AVAILABLE = False
+
+# Try to import YOLO with error handling
+try:
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
+except ImportError:
+    st.error("""
+    ⚠️ YOLO model is not available. This might be due to deployment environment limitations.
+    
+    **Solutions:**
+    1. Try refreshing the page
+    2. Check if the app is still deploying
+    3. Contact support if the issue persists
+    """)
+    YOLO_AVAILABLE = False
 
 # Page configuration
 st.set_page_config(
@@ -66,6 +96,10 @@ st.markdown("""
 @st.cache_resource
 def load_model():
     """Load the YOLO model"""
+    if not YOLO_AVAILABLE:
+        st.error("YOLO is not available. Cannot load model.")
+        return None
+    
     try:
         model = YOLO('best.pt')
         return model
@@ -137,6 +171,9 @@ with tab1:
             video_path = tmp_file.name
         
         if st.button("🔍 Process Video", type="primary"):
+            if not OPENCV_AVAILABLE:
+                st.error("OpenCV is not available. Video processing requires OpenCV.")
+                return
             if st.session_state.model is None:
                 st.error("Model not loaded. Please check your model file.")
             else:
@@ -232,6 +269,9 @@ with tab2:
         image = Image.open(camera_input)
         
         if st.button("🔍 Detect Trash", type="primary"):
+            if not OPENCV_AVAILABLE:
+                st.error("OpenCV is not available. Image processing requires OpenCV.")
+                return
             if st.session_state.model is None:
                 st.error("Model not loaded. Please check your model file.")
             else:

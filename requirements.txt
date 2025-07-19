@@ -1,10 +1,7 @@
-flask==2.3.3
+streamlit>=1.28.0
 opencv-python-headless==4.8.1.78
 torch>=2.5.0
 torchvision>=0.20.0
-Pillow>=10.0.1
-numpy>=1.24.3
-werkzeug==2.3.7
-flask-cors==4.0.0
-ultralytics>=8.0.196
-gunicorn==21.2.0 
+Pillow>=10.0.0
+numpy>=1.24.0
+ultralytics>=8.0.0 
