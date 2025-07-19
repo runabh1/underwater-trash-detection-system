@@ -127,12 +127,45 @@ def load_model():
         st.error(f"Error loading model: {e}")
         return None
 
+def recreate_video_from_frames(frames, fps, width, height):
+    """Recreate video from processed frames"""
+    if not frames:
+        return None
+    
+    try:
+        # Create temporary video file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
+            video_path = tmp_video.name
+        
+        # Initialize video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+        
+        # Write frames to video
+        for frame_data in frames:
+            # Convert PIL image back to OpenCV format
+            frame_cv = cv2.cvtColor(np.array(frame_data), cv2.COLOR_RGB2BGR)
+            out.write(frame_cv)
+        
+        out.release()
+        return video_path
+    
+    except Exception as e:
+        st.error(f"Error creating video: {e}")
+        return None
+
 # Initialize session state
 if 'model' not in st.session_state:
     st.session_state.model = load_model()
 
 if 'processed_frames' not in st.session_state:
     st.session_state.processed_frames = []
+
+if 'processed_frames_for_video' not in st.session_state:
+    st.session_state.processed_frames_for_video = []
+
+if 'video_properties' not in st.session_state:
+    st.session_state.video_properties = {}
 
 # Show import status
 if not TRASH_CLASSES_IMPORTED:
@@ -212,7 +245,18 @@ with tab1:
                     processed_count = 0
                     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                     
+                    # Get video properties for recreation
+                    fps = int(cap.get(cv2.CAP_PROP_FPS))
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    
                     st.session_state.processed_frames = []
+                    st.session_state.processed_frames_for_video = []
+                    st.session_state.video_properties = {
+                        'fps': fps,
+                        'width': width,
+                        'height': height
+                    }
                     
                     while True:
                         ret, frame = cap.read()
@@ -255,13 +299,16 @@ with tab1:
                             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                             pil_image = Image.fromarray(frame_rgb)
                             
-                            # Store frame data
+                            # Store frame data for display
                             st.session_state.processed_frames.append({
                                 'frame_number': frame_count,
                                 'image': pil_image,
                                 'detections': detections,
                                 'confidence': confidence_threshold
                             })
+                            
+                            # Store frame for video recreation
+                            st.session_state.processed_frames_for_video.append(pil_image)
                             
                             processed_count += 1
                             
@@ -391,10 +438,45 @@ with tab3:
                             use_container_width=True
                         )
         
-        # Clear results button
-        if st.button("🗑️ Clear Results"):
-            st.session_state.processed_frames = []
-            st.rerun()
+        # Video recreation and clear results buttons
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🎬 Recreate Video", type="primary", disabled=not st.session_state.processed_frames_for_video):
+                if st.session_state.processed_frames_for_video and st.session_state.video_properties:
+                    with st.spinner("Creating video with detections..."):
+                        video_path = recreate_video_from_frames(
+                            st.session_state.processed_frames_for_video,
+                            st.session_state.video_properties['fps'],
+                            st.session_state.video_properties['width'],
+                            st.session_state.video_properties['height']
+                        )
+                        
+                        if video_path:
+                            # Read the video file and provide download
+                            with open(video_path, 'rb') as video_file:
+                                video_bytes = video_file.read()
+                            
+                            st.download_button(
+                                label="📥 Download Video with Detections",
+                                data=video_bytes,
+                                file_name="detected_trash_video.mp4",
+                                mime="video/mp4"
+                            )
+                            
+                            # Clean up temporary file
+                            os.unlink(video_path)
+                            
+                            st.success("✅ Video created successfully! Click the download button above to save it.")
+                        else:
+                            st.error("❌ Failed to create video.")
+        
+        with col2:
+            if st.button("🗑️ Clear Results"):
+                st.session_state.processed_frames = []
+                st.session_state.processed_frames_for_video = []
+                st.session_state.video_properties = {}
+                st.rerun()
 
 # Footer
 st.markdown("---")
