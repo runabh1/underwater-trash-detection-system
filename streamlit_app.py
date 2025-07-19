@@ -6,7 +6,20 @@ from PIL import Image
 import base64
 import io
 import time
-from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
+# Import trash classes with error handling
+try:
+    from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
+    TRASH_CLASSES_IMPORTED = True
+except ImportError as e:
+    print(f"Warning: Could not import trash_classes: {e}")
+    # Fallback functions if import fails
+    def get_class_name_short(class_id):
+        return f"Class_{class_id}"
+    def get_class_color(class_id):
+        return (0, 255, 0)  # Default green
+    def update_mapping_from_model(model_names):
+        pass  # Do nothing if import fails
+    TRASH_CLASSES_IMPORTED = False
 
 # Try to import OpenCV with error handling
 try:
@@ -120,6 +133,12 @@ if 'model' not in st.session_state:
 
 if 'processed_frames' not in st.session_state:
     st.session_state.processed_frames = []
+
+# Show import status
+if not TRASH_CLASSES_IMPORTED:
+    st.warning("⚠️ Trash classes module not imported. Using fallback detection.")
+else:
+    st.success("✅ Multi-class detection enabled!")
 
 # Main title
 st.markdown("""
