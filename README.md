@@ -10,7 +10,7 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 - 📷 **Live Webcam Detection**: Real-time trash detection using your device's camera
 - 🔍 **Frame-by-Frame Analysis**: Detailed results showing each processed frame with detected trash
 - 📊 **Grid Display**: Results displayed in an organized grid layout
-- 🎯 **Bounding Box Visualization**: Green bounding boxes around detected trash items
+- 🎯 **Bounding Box Visualization**: Color-coded bounding boxes around detected trash items with specific class names
 - 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
 
 ## Prerequisites
@@ -18,6 +18,26 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 - Python 3.8 or higher
 - Your trained YOLO model file (`best.pt`)
 - Web browser with camera access (for live detection)
+
+## Supported Trash Types
+
+The system can detect and classify the following 15 types of underwater trash:
+
+- 😷 **Mask** - Face masks and protective gear
+- 🥫 **Can** - Metal beverage cans and containers
+- 📱 **Cellphone** - Mobile phones and electronic devices
+- 🔌 **Electronics** - Electronic components and devices
+- 🍾 **Glass Bottle** - Glass containers and bottles
+- 🧤 **Glove** - Rubber gloves and protective gear
+- 🔧 **Metal** - Metal objects and debris
+- 📦 **Misc** - Miscellaneous items
+- 🕸️ **Net** - Fishing nets and gear
+- 🛍️ **Plastic Bag** - Plastic shopping bags and packaging
+- 🥤 **Plastic Bottle** - Plastic beverage containers
+- 🧴 **Plastic** - Other plastic materials
+- 🪢 **Rod** - Metal rods and pipes
+- 😎 **Sunglasses** - Eyewear and accessories
+- 🚗 **Tyre** - Vehicle tires and rubber materials
 
 ## Installation
 
@@ -107,6 +127,7 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 under_trash/
 ├── app.py                 # Main Flask application
 ├── best.pt               # Your trained YOLO model
+├── trash_classes.py      # Trash class definitions and colors
 ├── requirements.txt      # Python dependencies
 ├── README.md            # This file
 ├── templates/
@@ -128,6 +149,11 @@ under_trash/
 - The system automatically loads your `best.pt` model file
 - Detection confidence thresholds can be adjusted in `app.py`
 - Frame processing frequency can be modified (currently every 5th frame)
+
+### Trash Class Configuration
+- Trash classes and their colors can be customized in `trash_classes.py`
+- The system supports 15 different trash types as trained in your model
+- Each trash type has its own color for easy identification
 
 ### UI Customization
 - Ocean theme colors can be modified in the CSS section of `templates/index.html`

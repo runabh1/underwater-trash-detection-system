@@ -10,6 +10,7 @@ import json
 from ultralytics import YOLO
 import tempfile
 import uuid
+from trash_classes import get_class_name_short, get_class_color
 
 app = Flask(__name__)
 CORS(app)
@@ -83,13 +84,17 @@ def process_video(video_path):
                         confidence = box.conf[0].cpu().numpy()
                         class_id = int(box.cls[0].cpu().numpy())
                         
+                        # Get class name and color
+                        class_name = get_class_name_short(class_id)
+                        color = get_class_color(class_id)
+                        
                         # Draw bounding box on frame
-                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                         
                         # Add label
-                        label = f"Trash: {confidence:.2f}"
+                        label = f"{class_name}: {confidence:.2f}"
                         cv2.putText(frame, label, (int(x1), int(y1) - 10), 
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
             # Convert frame to base64 for frontend
             _, buffer = cv2.imencode('.jpg', frame)
@@ -143,7 +148,8 @@ def process_frame():
                     detections.append({
                         'bbox': [int(x1), int(y1), int(x2), int(y2)],
                         'confidence': float(confidence),
-                        'class_id': class_id
+                        'class_id': class_id,
+                        'class_name': get_class_name_short(class_id)
                     })
         
         return jsonify({'detections': detections})

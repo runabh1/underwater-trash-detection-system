@@ -6,6 +6,7 @@ from PIL import Image
 import base64
 import io
 import time
+from trash_classes import get_class_name_short, get_class_color
 
 # Try to import OpenCV with error handling
 try:
@@ -206,17 +207,22 @@ with tab1:
                                 boxes = result.boxes
                                 if boxes is not None:
                                     for box in boxes:
-                                        # Get box coordinates
+                                        # Get box coordinates and class info
                                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                         confidence = box.conf[0].cpu().numpy()
+                                        class_id = int(box.cls[0].cpu().numpy())
+                                        
+                                        # Get class name and color
+                                        class_name = get_class_name_short(class_id)
+                                        color = get_class_color(class_id)
                                         
                                         # Draw bounding box
-                                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                                         
                                         # Add label
-                                        label = f"Trash: {confidence:.2f}"
+                                        label = f"{class_name}: {confidence:.2f}"
                                         cv2.putText(frame, label, (int(x1), int(y1) - 10), 
-                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                                         
                                         detections += 1
                             
@@ -286,17 +292,22 @@ with tab2:
                         boxes = result.boxes
                         if boxes is not None:
                             for box in boxes:
-                                # Get box coordinates
+                                # Get box coordinates and class info
                                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                 confidence = box.conf[0].cpu().numpy()
+                                class_id = int(box.cls[0].cpu().numpy())
+                                
+                                # Get class name and color
+                                class_name = get_class_name_short(class_id)
+                                color = get_class_color(class_id)
                                 
                                 # Draw bounding box
-                                cv2.rectangle(image_cv, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                                cv2.rectangle(image_cv, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                                 
                                 # Add label
-                                label = f"Trash: {confidence:.2f}"
+                                label = f"{class_name}: {confidence:.2f}"
                                 cv2.putText(image_cv, label, (int(x1), int(y1) - 10), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                                 
                                 detections += 1
                     

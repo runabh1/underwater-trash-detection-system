@@ -683,7 +683,8 @@
                 // Draw label
                 ctx.fillStyle = '#00ff00';
                 ctx.font = '12px Arial';
-                ctx.fillText(`Trash: ${confidence.toFixed(2)}`, scaledX1, scaledY1 - 5);
+                const class_name = detection.class_name || `Trash`;
+                ctx.fillText(`${class_name}: ${confidence.toFixed(2)}`, scaledX1, scaledY1 - 5);
             });
         }
 
