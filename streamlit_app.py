@@ -203,6 +203,15 @@ with st.sidebar:
         help="Process every Nth frame (higher = faster processing)"
     )
     
+    max_detections = st.slider(
+        "Max Detections per Frame",
+        min_value=1,
+        max_value=50,
+        value=20,
+        step=1,
+        help="Maximum number of detections to show per frame"
+    )
+    
     st.markdown("---")
     st.markdown("### 📊 Statistics")
     if st.session_state.processed_frames:
@@ -276,6 +285,10 @@ with tab1:
                                 boxes = result.boxes
                                 if boxes is not None:
                                     for box in boxes:
+                                        # Check if we've reached max detections
+                                        if detections >= max_detections:
+                                            break
+                                            
                                         # Get box coordinates and class info
                                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                         confidence = box.conf[0].cpu().numpy()
@@ -364,6 +377,10 @@ with tab2:
                         boxes = result.boxes
                         if boxes is not None:
                             for box in boxes:
+                                # Check if we've reached max detections
+                                if detections >= max_detections:
+                                    break
+                                    
                                 # Get box coordinates and class info
                                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                 confidence = box.conf[0].cpu().numpy()
