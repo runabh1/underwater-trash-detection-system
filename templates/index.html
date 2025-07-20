@@ -545,6 +545,11 @@
         </div>
 
         <div id="status" class="status" style="display: none;"></div>
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="btn" onclick="checkModelStatus()" style="background: linear-gradient(45deg, #28a745, #20c997);">
+                🔄 Check Model Status
+            </button>
+        </div>
 
         <div class="results-section" id="resultsSection" style="display: none;">
             <div class="results-header">
@@ -595,6 +600,24 @@
         
         // Store current session ID for video recreation
         let currentSessionId = null;
+        
+        // Check model status on page load
+        checkModelStatus();
+        
+        async function checkModelStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (data.model_loaded) {
+                    showStatus('✅ Model loaded successfully!', 'success');
+                } else {
+                    showStatus('⚠️ Model not loaded. Please check server logs.', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Cannot connect to server. Please check if the server is running.', 'error');
+            }
+        }
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -642,6 +665,20 @@
 
         async function processVideo(file) {
             if (isProcessing) return;
+            
+            // Check model status before processing
+            try {
+                const healthResponse = await fetch('/health');
+                const healthData = await healthResponse.json();
+                
+                if (!healthData.model_loaded) {
+                    showStatus('❌ Model not loaded. Please restart the server.', 'error');
+                    return;
+                }
+            } catch (error) {
+                showStatus('❌ Cannot connect to server. Please check if the server is running.', 'error');
+                return;
+            }
             
             isProcessing = true;
             showStatus('Processing video...', 'success');
