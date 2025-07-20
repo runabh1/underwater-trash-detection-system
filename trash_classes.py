@@ -73,8 +73,13 @@ def update_mapping_from_model(model_names):
         print(f"🔄 Updating mapping from model: {model_names}")
         # Extract values from the dictionary and convert to list
         EXPECTED_CLASSES = list(model_names.values())
-        # Update display names to match
-        DISPLAY_NAMES = [str(name).title() for name in model_names.values()]
+        # Update display names to match - handle both string and int values
+        DISPLAY_NAMES = []
+        for name in model_names.values():
+            if isinstance(name, str):
+                DISPLAY_NAMES.append(name.title())
+            else:
+                DISPLAY_NAMES.append(str(name).title())
 
 # Run debug if this file is executed directly
 if __name__ == "__main__":

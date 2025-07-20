@@ -107,7 +107,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load the model
-@st.cache_resource
 def load_model():
     """Load the YOLO model"""
     if not YOLO_AVAILABLE:
@@ -115,16 +114,26 @@ def load_model():
         return None
     
     try:
+        # Check if model file exists
+        if not os.path.exists('best.pt'):
+            st.error("Model file 'best.pt' not found in the current directory.")
+            return None
+        
+        st.info("🔄 Loading YOLO model...")
         model = YOLO('best.pt')
         
         # Update mapping if model has class names
-        if hasattr(model, 'names'):
+        if hasattr(model, 'names') and model.names:
             update_mapping_from_model(model.names)
-            st.success(f"✅ Model loaded with {len(model.names)} classes: {list(model.names)}")
+            st.success(f"✅ Model loaded successfully with {len(model.names)} classes")
+            st.info(f"Classes: {list(model.names.values())}")
+        else:
+            st.warning("⚠️ Model loaded but no class names found")
         
         return model
     except Exception as e:
-        st.error(f"Error loading model: {e}")
+        st.error(f"❌ Error loading model: {str(e)}")
+        st.error("Please ensure the 'best.pt' file is in the correct location and not corrupted.")
         return None
 
 def recreate_video_from_frames(frames, fps, width, height):
@@ -156,7 +165,7 @@ def recreate_video_from_frames(frames, fps, width, height):
 
 # Initialize session state
 if 'model' not in st.session_state:
-    st.session_state.model = load_model()
+    st.session_state.model = None
 
 if 'processed_frames' not in st.session_state:
     st.session_state.processed_frames = []
@@ -166,6 +175,11 @@ if 'processed_frames_for_video' not in st.session_state:
 
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
+
+# Force model loading on startup
+if st.session_state.model is None:
+    with st.spinner("Loading model..."):
+        st.session_state.model = load_model()
 
 # Show import status
 if not TRASH_CLASSES_IMPORTED:
@@ -181,8 +195,55 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Debug information (expandable)
+with st.expander("🔧 Debug Information"):
+    st.write("**Environment Check:**")
+    st.write(f"- OpenCV Available: {OPENCV_AVAILABLE}")
+    st.write(f"- YOLO Available: {YOLO_AVAILABLE}")
+    st.write(f"- Trash Classes Imported: {TRASH_CLASSES_IMPORTED}")
+    st.write(f"- Model File Exists: {os.path.exists('best.pt')}")
+    st.write(f"- Model Loaded: {st.session_state.model is not None}")
+    
+    if st.session_state.model is not None:
+        st.write("**Model Information:**")
+        st.write(f"- Model Type: {type(st.session_state.model)}")
+        if hasattr(st.session_state.model, 'names'):
+            st.write(f"- Classes: {st.session_state.model.names}")
+        
+        # Test model with a simple inference
+        if st.button("🧪 Test Model"):
+            try:
+                # Create a simple test image
+                test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+                results = st.session_state.model(test_image, conf=0.1)
+                st.success("✅ Model test successful!")
+                st.write(f"Results type: {type(results)}")
+            except Exception as e:
+                st.error(f"❌ Model test failed: {str(e)}")
+    
+    if st.button("🔄 Refresh Debug Info"):
+        st.rerun()
+
 # Sidebar
 with st.sidebar:
+    st.markdown("### 🤖 Model Status")
+    
+    # Model status and reload button
+    if st.session_state.model is not None:
+        st.success("✅ Model Loaded")
+        if hasattr(st.session_state.model, 'names'):
+            st.info(f"Classes: {len(st.session_state.model.names)}")
+        if st.button("🔄 Reload Model"):
+            st.session_state.model = None
+            st.rerun()
+    else:
+        st.error("❌ Model Not Loaded")
+        if st.button("🔄 Try Loading Model"):
+            with st.spinner("Loading model..."):
+                st.session_state.model = load_model()
+            st.rerun()
+    
+    st.markdown("---")
     st.markdown("### 🎛️ Detection Settings")
     
     confidence_threshold = st.slider(
@@ -242,7 +303,8 @@ with tab1:
             if not OPENCV_AVAILABLE:
                 st.error("OpenCV is not available. Video processing requires OpenCV.")
             elif st.session_state.model is None:
-                st.error("Model not loaded. Please check your model file.")
+                st.error("❌ Model not loaded. Please check your model file.")
+                st.error("Try clicking the '🔄 Try Loading Model' button in the sidebar.")
             else:
                 with st.spinner("Processing video frames..."):
                     progress_bar = st.progress(0)
@@ -362,7 +424,8 @@ with tab2:
             if not OPENCV_AVAILABLE:
                 st.error("OpenCV is not available. Image processing requires OpenCV.")
             elif st.session_state.model is None:
-                st.error("Model not loaded. Please check your model file.")
+                st.error("❌ Model not loaded. Please check your model file.")
+                st.error("Try clicking the '🔄 Try Loading Model' button in the sidebar.")
             else:
                 with st.spinner("Detecting trash..."):
                     # Convert PIL to OpenCV format
