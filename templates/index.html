@@ -142,6 +142,64 @@
             transform: none;
         }
 
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #87ceeb;
+        }
+
+        .settings-group small {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #87ceeb;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #87ceeb;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .slider-value {
+            display: inline-block;
+            background: rgba(135, 206, 235, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
         .webcam-container {
             position: relative;
             margin-bottom: 20px;
@@ -454,6 +512,28 @@
             </div>
 
             <div class="control-card">
+                <h3>⚙️ Processing Settings</h3>
+                <div class="settings-group">
+                    <label for="frameSkip">Frame Skip Interval:</label>
+                    <input type="range" id="frameSkip" min="1" max="20" value="5" class="slider">
+                    <span id="frameSkipValue">5</span>
+                    <small>Process every Nth frame (1 = all frames, 5 = every 5th frame)</small>
+                </div>
+                <div class="settings-group">
+                    <label for="confidenceThreshold">Confidence Threshold:</label>
+                    <input type="range" id="confidenceThreshold" min="0.1" max="0.9" step="0.05" value="0.5" class="slider">
+                    <span id="confidenceValue">0.50</span>
+                    <small>Minimum confidence for detection (0.1 = 10%, 0.9 = 90%)</small>
+                </div>
+                <div class="settings-group">
+                    <label for="maxDetections">Max Detections per Frame:</label>
+                    <input type="range" id="maxDetections" min="1" max="50" value="20" class="slider">
+                    <span id="maxDetectionsValue">20</span>
+                    <small>Maximum number of detections to show per frame</small>
+                </div>
+            </div>
+
+            <div class="control-card">
                 <h3>📷 Live Detection</h3>
                 <div class="webcam-container">
                     <video id="webcam" autoplay muted></video>
@@ -505,6 +585,14 @@
         const recreateVideoBtn = document.getElementById('recreateVideoBtn');
         const videoRecreationStatus = document.getElementById('videoRecreationStatus');
         
+        // Slider controls
+        const frameSkipSlider = document.getElementById('frameSkip');
+        const frameSkipValue = document.getElementById('frameSkipValue');
+        const confidenceSlider = document.getElementById('confidenceThreshold');
+        const confidenceValue = document.getElementById('confidenceValue');
+        const maxDetectionsSlider = document.getElementById('maxDetections');
+        const maxDetectionsValue = document.getElementById('maxDetectionsValue');
+        
         // Store current session ID for video recreation
         let currentSessionId = null;
 
@@ -533,6 +621,19 @@
             }
         });
 
+        // Slider event listeners
+        frameSkipSlider.addEventListener('input', (e) => {
+            frameSkipValue.textContent = e.target.value;
+        });
+
+        confidenceSlider.addEventListener('input', (e) => {
+            confidenceValue.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+
+        maxDetectionsSlider.addEventListener('input', (e) => {
+            maxDetectionsValue.textContent = e.target.value;
+        });
+
         function handleVideoFile(file) {
             showStatus(`Selected video: ${file.name}`, 'success');
             processBtn.style.display = 'inline-block';
@@ -550,6 +651,11 @@
 
             const formData = new FormData();
             formData.append('video', file);
+            
+            // Add processing parameters
+            formData.append('frame_skip', frameSkipSlider.value);
+            formData.append('confidence_threshold', confidenceSlider.value);
+            formData.append('max_detections', maxDetectionsSlider.value);
 
             try {
                 const response = await fetch('/upload_video', {
@@ -671,7 +777,11 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ frame: frameData })
+                    body: JSON.stringify({ 
+                        frame: frameData,
+                        confidence_threshold: confidenceSlider.value,
+                        max_detections: maxDetectionsSlider.value
+                    })
                 });
                 
                 const result = await response.json();

@@ -8,6 +8,7 @@ To test the website visit : https://underwater-trash-detection-system.onrender.c
 - 🌊 **Ocean-themed UI**: Beautiful underwater design with animated bubbles and ocean gradients
 - 📹 **Video Upload**: Upload and process underwater videos frame by frame
 - 📷 **Live Webcam Detection**: Real-time trash detection using your device's camera
+- ⚙️ **Adjustable Parameters**: Customize frame skip interval, confidence threshold, and max detections
 - 🔍 **Frame-by-Frame Analysis**: Detailed results showing each processed frame with detected trash
 - 📊 **Grid Display**: Results displayed in an organized grid layout
 - 🎯 **Bounding Box Visualization**: Color-coded bounding boxes around detected trash items with specific class names
@@ -96,7 +97,11 @@ The system can detect and classify the following 15 types of underwater trash:
 
    ### Video Upload
    - Click "Choose Video File" or drag and drop a video file
-   - Supported formats: MP4, AVI, MOV
+   - Supported formats: MP4, AVI, MOV, MKV
+   - Adjust processing parameters:
+     - **Frame Skip Interval**: Process every Nth frame (1 = all frames, 5 = every 5th frame)
+     - **Confidence Threshold**: Minimum confidence for detection (0.1 = 10%, 0.9 = 90%)
+     - **Max Detections**: Maximum number of detections to show per frame
    - Click "Process Video" to analyze the video
    - View results in the grid below
    - Click "Recreate Video with Detections" to download the processed video with detection overlays
@@ -104,6 +109,7 @@ The system can detect and classify the following 15 types of underwater trash:
    ### Live Webcam Detection
    - Click "Start Webcam" to begin live detection
    - Allow camera access when prompted
+   - Adjust confidence threshold and max detections for real-time processing
    - Real-time detection results will appear on the video feed
    - Click "Stop Webcam" to end the session
 

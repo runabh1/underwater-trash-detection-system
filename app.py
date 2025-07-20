@@ -16,10 +16,13 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the trained model
-model = YOLO('best.pt')
-
-# Debug: Print model class names if available and update mapping
+model = None
 try:
+    print("🔄 Loading YOLO model...")
+    model = YOLO('best.pt')
+    print("✅ Model loaded successfully")
+    
+    # Debug: Print model class names if available and update mapping
     if hasattr(model, 'names'):
         print("🔍 Model class names:", model.names)
         # Update our mapping to match the model's actual class names
@@ -27,7 +30,10 @@ try:
     else:
         print("⚠️ No class names found in model")
 except Exception as e:
-    print(f"❌ Error accessing model names: {e}")
+    print(f"❌ Error loading model: {e}")
+    import traceback
+    traceback.print_exc()
+    model = None
 
 # Create uploads directory if it doesn't exist
 UPLOAD_FOLDER = 'uploads'
@@ -45,11 +51,21 @@ def index():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'healthy', 'message': 'Underwater Trash Detection System is running'})
+    model_status = "loaded" if model is not None else "not loaded"
+    return jsonify({
+        'status': 'healthy', 
+        'message': 'Underwater Trash Detection System is running',
+        'model_status': model_status,
+        'model_loaded': model is not None
+    })
 
 @app.route('/upload_video', methods=['POST'])
 def upload_video():
     try:
+        # Check if model is loaded
+        if model is None:
+            return jsonify({'error': 'Model is not loaded. Please check if best.pt file exists and is valid.'}), 500
+        
         if 'video' not in request.files:
             return jsonify({'error': 'No video file provided'}), 400
         
@@ -57,24 +73,46 @@ def upload_video():
         if video_file.filename == '':
             return jsonify({'error': 'No video file selected'}), 400
         
+        # Check file extension
+        allowed_extensions = {'mp4', 'avi', 'mov', 'mkv'}
+        file_extension = video_file.filename.rsplit('.', 1)[1].lower() if '.' in video_file.filename else ''
+        if file_extension not in allowed_extensions:
+            return jsonify({'error': f'Unsupported file format. Please use: {", ".join(allowed_extensions)}'}), 400
+        
+        # Get processing parameters
+        frame_skip = int(request.form.get('frame_skip', 5))
+        confidence_threshold = float(request.form.get('confidence_threshold', 0.5))
+        max_detections = int(request.form.get('max_detections', 20))
+        
+        print(f"⚙️ Processing parameters: frame_skip={frame_skip}, confidence_threshold={confidence_threshold}, max_detections={max_detections}")
+        
         # Save the uploaded video
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4()}.mp4")
         video_file.save(video_path)
         
-        # Process the video
-        results = process_video(video_path)
+        # Process the video with parameters
+        results = process_video(video_path, frame_skip, confidence_threshold, max_detections)
         
         # Clean up the uploaded file
-        os.remove(video_path)
+        if os.path.exists(video_path):
+            os.remove(video_path)
         
         return jsonify(results)
     
     except Exception as e:
+        print(f"❌ Error in upload_video: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-def process_video(video_path):
+def process_video(video_path, frame_skip=5, confidence_threshold=0.5, max_detections=20):
     """Process video frame by frame and detect trash"""
+    # Check if model is loaded
+    if model is None:
+        raise Exception("Model is not loaded. Please check if best.pt file exists and is valid.")
+    
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise Exception("Could not open video file. Please check if the file is valid.")
+    
     frame_results = []
     frame_count = 0
     processed_frames = []  # Store frames for video recreation
@@ -89,8 +127,8 @@ def process_video(video_path):
         if not ret:
             break
         
-        # Process every 5th frame to avoid too many results
-        if frame_count % 5 == 0:
+        # Process frames based on frame_skip parameter
+        if frame_count % frame_skip == 0:
             # Create a copy of the frame for processing
             processed_frame = frame.copy()
             
@@ -98,17 +136,26 @@ def process_video(video_path):
             results = model(frame)
             
             # Process results
+            detection_count = 0
             for result in results:
                 boxes = result.boxes
                 if boxes is not None:
                     for box in boxes:
+                        # Check if we've reached max detections
+                        if detection_count >= max_detections:
+                            break
+                            
                         # Get box coordinates
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         confidence = box.conf[0].cpu().numpy()
                         class_id = int(box.cls[0].cpu().numpy())
                         
+                        # Apply confidence threshold
+                        if confidence < confidence_threshold:
+                            continue
+                        
                         # Debug: Print class ID being detected
-                        print(f"🔍 Detected Class ID: {class_id}")
+                        print(f"🔍 Detected Class ID: {class_id} (confidence: {confidence:.2f})")
                         
                         # Get class name and color
                         class_name = get_class_name_short(class_id)
@@ -121,6 +168,8 @@ def process_video(video_path):
                         label = f"{class_name}: {confidence:.2f}"
                         cv2.putText(processed_frame, label, (int(x1), int(y1) - 10), 
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                        
+                        detection_count += 1
             
             # Convert frame to base64 for frontend
             _, buffer = cv2.imencode('.jpg', processed_frame)
@@ -129,7 +178,7 @@ def process_video(video_path):
             frame_results.append({
                 'frame_number': frame_count,
                 'image': frame_base64,
-                'detections': len(results[0].boxes) if results[0].boxes is not None else 0
+                'detections': detection_count
             })
             
             # Store processed frame for video recreation
@@ -201,6 +250,8 @@ def process_frame():
     try:
         data = request.get_json()
         frame_data = data['frame']
+        confidence_threshold = float(data.get('confidence_threshold', 0.5))
+        max_detections = int(data.get('max_detections', 20))
         
         # Remove data URL prefix
         frame_data = frame_data.split(',')[1]
@@ -217,13 +268,22 @@ def process_frame():
         
         # Process results
         detections = []
+        detection_count = 0
         for result in results:
             boxes = result.boxes
             if boxes is not None:
                 for box in boxes:
+                    # Check if we've reached max detections
+                    if detection_count >= max_detections:
+                        break
+                        
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     confidence = box.conf[0].cpu().numpy()
                     class_id = int(box.cls[0].cpu().numpy())
+                    
+                    # Apply confidence threshold
+                    if confidence < confidence_threshold:
+                        continue
                     
                     detections.append({
                         'bbox': [int(x1), int(y1), int(x2), int(y2)],
@@ -231,6 +291,8 @@ def process_frame():
                         'class_id': class_id,
                         'class_name': get_class_name_short(class_id)
                     })
+                    
+                    detection_count += 1
         
         return jsonify({'detections': detections})
     

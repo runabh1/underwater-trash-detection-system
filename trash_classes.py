@@ -71,9 +71,10 @@ def update_mapping_from_model(model_names):
     global EXPECTED_CLASSES, DISPLAY_NAMES
     if model_names:
         print(f"🔄 Updating mapping from model: {model_names}")
-        EXPECTED_CLASSES = list(model_names)
+        # Extract values from the dictionary and convert to list
+        EXPECTED_CLASSES = list(model_names.values())
         # Update display names to match
-        DISPLAY_NAMES = [name.title() for name in model_names]
+        DISPLAY_NAMES = [str(name).title() for name in model_names.values()]
 
 # Run debug if this file is executed directly
 if __name__ == "__main__":
