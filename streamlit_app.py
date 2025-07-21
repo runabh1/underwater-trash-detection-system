@@ -21,37 +21,29 @@ except ImportError as e:
         pass  # Do nothing if import fails
     TRASH_CLASSES_IMPORTED = False
 
-# Try to import OpenCV with error handling
+# Try to import OpenCV
 try:
     import cv2
     OPENCV_AVAILABLE = True
 except ImportError:
-    st.error("""
-    ⚠️ OpenCV (cv2) is not available. This might be due to deployment environment limitations.
-    
-    **Solutions:**
-    1. Try refreshing the page
-    2. Check if the app is still deploying
-    3. Contact support if the issue persists
-    
-    The app will work with limited functionality without OpenCV.
-    """)
     OPENCV_AVAILABLE = False
 
-# Try to import YOLO with error handling
+# Try to import YOLO
 try:
     from ultralytics import YOLO
     YOLO_AVAILABLE = True
 except ImportError:
-    st.error("""
-    ⚠️ YOLO model is not available. This might be due to deployment environment limitations.
-    
-    **Solutions:**
-    1. Try refreshing the page
-    2. Check if the app is still deploying
-    3. Contact support if the issue persists
-    """)
     YOLO_AVAILABLE = False
+
+if not OPENCV_AVAILABLE or not YOLO_AVAILABLE:
+    st.error(f"""
+    🚨 **Critical dependencies are missing!**
+    - OpenCV available: {OPENCV_AVAILABLE}
+    - YOLO available: {YOLO_AVAILABLE}
+    
+    Please check your requirements file and redeploy.
+    """)
+    st.stop()
 
 # Page configuration
 st.set_page_config(
