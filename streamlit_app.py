@@ -106,34 +106,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load the model
+MODEL_PATH = "best.pt"
+
 def load_model():
-    """Load the YOLO model"""
-    if not YOLO_AVAILABLE:
-        st.error("YOLO is not available. Cannot load model.")
+    """Robust model loader for Streamlit."""
+    if not os.path.exists(MODEL_PATH):
+        st.error(f"Model file '{MODEL_PATH}' not found in: {os.getcwd()}")
         return None
-    
     try:
-        # Check if model file exists
-        if not os.path.exists('best.pt'):
-            st.error("Model file 'best.pt' not found in the current directory.")
-            return None
-        
-        st.info("🔄 Loading YOLO model...")
-        model = YOLO('best.pt')
-        
-        # Update mapping if model has class names
-        if hasattr(model, 'names') and model.names:
-            update_mapping_from_model(model.names)
-            st.success(f"✅ Model loaded successfully with {len(model.names)} classes")
-            st.info(f"Classes: {list(model.names.values())}")
-        else:
-            st.warning("⚠️ Model loaded but no class names found")
-        
+        model = YOLO(MODEL_PATH)
+        st.success("✅ Model loaded successfully!")
         return model
     except Exception as e:
-        st.error(f"❌ Error loading model: {str(e)}")
-        st.error("Please ensure the 'best.pt' file is in the correct location and not corrupted.")
+        st.error(f"❌ Error loading model: {e}")
         return None
 
 def recreate_video_from_frames(frames, fps, width, height):
@@ -176,10 +161,9 @@ if 'processed_frames_for_video' not in st.session_state:
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
 
-# Force model loading on startup
-if st.session_state.model is None:
-    with st.spinner("Loading model..."):
-        st.session_state.model = load_model()
+# Initialize model in session state
+if "model" not in st.session_state or st.session_state.model is None:
+    st.session_state.model = load_model()
 
 # Show import status
 if not TRASH_CLASSES_IMPORTED:
@@ -201,7 +185,7 @@ with st.expander("🔧 Debug Information"):
     st.write(f"- OpenCV Available: {OPENCV_AVAILABLE}")
     st.write(f"- YOLO Available: {YOLO_AVAILABLE}")
     st.write(f"- Trash Classes Imported: {TRASH_CLASSES_IMPORTED}")
-    st.write(f"- Model File Exists: {os.path.exists('best.pt')}")
+    st.write(f"- Model File Exists: {os.path.exists(MODEL_PATH)}")
     st.write(f"- Model Loaded: {st.session_state.model is not None}")
     
     if st.session_state.model is not None:
