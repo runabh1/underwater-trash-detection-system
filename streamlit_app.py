@@ -6,6 +6,8 @@ from PIL import Image
 import base64
 import io
 import time
+import requests
+import altair as alt
 # Import trash classes with error handling
 try:
     from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
@@ -257,6 +259,11 @@ with st.sidebar:
         st.metric("Total Detections", total_detections)
         st.metric("Avg Detections/Frame", f"{total_detections/len(st.session_state.processed_frames):.1f}")
 
+    st.markdown("### 📍 Detection Location")
+    lat = st.number_input("Latitude", value=20.0, format="%.6f", key="latitude")
+    lon = st.number_input("Longitude", value=0.0, format="%.6f", key="longitude")
+    st.session_state['location'] = {'lat': lat, 'lon': lon}
+
 # Main content
 tab1, tab2, tab3 = st.tabs(["📹 Video Upload", "📷 Live Detection", "📊 Results"])
 
@@ -458,6 +465,41 @@ with tab2:
 with tab3:
     st.markdown("### 📊 Detection Results")
     
+    # Show map and weather for selected location
+    location = st.session_state.get('location', {'lat': 20.0, 'lon': 0.0})
+    st.markdown("#### 📍 Detection Location Map")
+    st.map(data=[{'lat': location['lat'], 'lon': location['lon']}], zoom=6)
+    # Weather card
+    st.markdown("#### 🌦️ Weather at Detection Location")
+    weather_api_key = os.environ.get('OPENWEATHER_API_KEY') or st.secrets.get('OPENWEATHER_API_KEY', None)
+    weather_data = None
+    if weather_api_key:
+        try:
+            resp = requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat={location["lat"]}&lon={location["lon"]}&appid={weather_api_key}&units=metric')
+            if resp.status_code == 200:
+                data = resp.json()
+                weather_data = {
+                    'temp': data['main']['temp'],
+                    'desc': data['weather'][0]['description'].title(),
+                    'icon': data['weather'][0]['icon'],
+                    'main': data['weather'][0]['main'],
+                    'city': data.get('name', ''),
+                    'country': data.get('sys', {}).get('country', '')
+                }
+        except Exception as e:
+            st.warning(f"Could not fetch weather: {e}")
+    if weather_data:
+        st.markdown(f"""
+        <div style='width:340px; margin:0 auto 30px auto; padding:24px; border-radius:20px; background:rgba(255,255,255,0.15); box-shadow:0 8px 32px 0 rgba(31,38,135,0.37); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.18); text-align:center; position:relative;'>
+            <div style='font-size:64px; margin-bottom:10px;'>🌡️</div>
+            <div style='font-size:2rem; font-weight:bold;'>{weather_data['temp']}°C</div>
+            <div style='font-size:1.1rem; margin-bottom:6px;'>{weather_data['desc']}</div>
+            <div style='font-size:0.95rem; color:#87ceeb;'>{weather_data['city']}, {weather_data['country']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Weather data not available. Check your API key in .env or Streamlit secrets.")
+    
     if not st.session_state.processed_frames:
         st.info("No processed frames yet. Upload a video or use live detection to see results.")
     else:
@@ -533,6 +575,28 @@ with tab3:
                 st.session_state.processed_frames_for_video = []
                 st.session_state.video_properties = {}
                 st.rerun()
+
+    # Trash type breakdown dashboard
+    if st.session_state.processed_frames:
+        class_counts = {}
+        for frame in st.session_state.processed_frames:
+            # You may want to store class info in processed_frames for more detail
+            # For now, we assume all detections are of the same class (if not, update this logic)
+            # Here, you can extend to store and count per class if available
+            pass  # Placeholder for per-class logic
+        # Example: If you store class info, fill class_counts here
+        # class_counts = {'Plastic': 10, 'Can': 5, ...}
+        # For demo, show a dummy chart if no data
+        if class_counts:
+            chart_data = [{'class': k, 'count': v} for k, v in class_counts.items()]
+            chart = alt.Chart(alt.Data(values=chart_data)).mark_bar().encode(
+                x='class:N',
+                y='count:Q',
+                color=alt.Color('class:N', legend=None)
+            ).properties(title='Trash Type Breakdown', width=400)
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info('No trash type breakdown available. Update detection logic to store per-class info.')
 
 # Footer
 st.markdown("---")
