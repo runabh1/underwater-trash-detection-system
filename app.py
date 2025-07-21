@@ -11,6 +11,9 @@ from ultralytics import YOLO
 import tempfile
 import uuid
 from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
+from dotenv import load_dotenv
+load_dotenv()
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -83,8 +86,10 @@ def upload_video():
         frame_skip = int(request.form.get('frame_skip', 5))
         confidence_threshold = float(request.form.get('confidence_threshold', 0.5))
         max_detections = int(request.form.get('max_detections', 20))
-        
-        print(f"⚙️ Processing parameters: frame_skip={frame_skip}, confidence_threshold={confidence_threshold}, max_detections={max_detections}")
+        # Get location
+        latitude = float(request.form.get('latitude', 0.0))
+        longitude = float(request.form.get('longitude', 0.0))
+        print(f"⚙️ Processing parameters: frame_skip={frame_skip}, confidence_threshold={confidence_threshold}, max_detections={max_detections}, latitude={latitude}, longitude={longitude}")
         
         # Save the uploaded video
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4()}.mp4")
@@ -92,6 +97,13 @@ def upload_video():
         
         # Process the video with parameters
         results = process_video(video_path, frame_skip, confidence_threshold, max_detections)
+        # Add location to results
+        results['latitude'] = latitude
+        results['longitude'] = longitude
+        # Store location with session
+        if 'session_id' in results and results['session_id'] in processed_frames_storage:
+            processed_frames_storage[results['session_id']]['latitude'] = latitude
+            processed_frames_storage[results['session_id']]['longitude'] = longitude
         
         # Clean up the uploaded file
         if os.path.exists(video_path):
@@ -122,6 +134,7 @@ def process_video(video_path, frame_skip=5, confidence_threshold=0.5, max_detect
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
+    class_counts = {}  # Track counts per class
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -159,6 +172,7 @@ def process_video(video_path, frame_skip=5, confidence_threshold=0.5, max_detect
                         
                         # Get class name and color
                         class_name = get_class_name_short(class_id)
+                        class_counts[class_name] = class_counts.get(class_name, 0) + 1
                         color = get_class_color(class_id)
                         
                         # Draw bounding box on processed frame
@@ -205,7 +219,8 @@ def process_video(video_path, frame_skip=5, confidence_threshold=0.5, max_detect
         'frames': frame_results,
         'total_frames': frame_count,
         'processed_frames': len(frame_results),
-        'session_id': session_id
+        'session_id': session_id,
+        'class_breakdown': class_counts
     }
 
 @app.route('/recreate_video', methods=['POST'])
@@ -252,6 +267,8 @@ def process_frame():
         frame_data = data['frame']
         confidence_threshold = float(data.get('confidence_threshold', 0.5))
         max_detections = int(data.get('max_detections', 20))
+        latitude = float(data.get('latitude', 0.0))
+        longitude = float(data.get('longitude', 0.0))
         
         # Remove data URL prefix
         frame_data = frame_data.split(',')[1]
@@ -294,8 +311,33 @@ def process_frame():
                     
                     detection_count += 1
         
-        return jsonify({'detections': detections})
+        return jsonify({'detections': detections, 'latitude': latitude, 'longitude': longitude})
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/weather')
+def get_weather():
+    try:
+        lat = float(request.args.get('lat', 0.0))
+        lon = float(request.args.get('lon', 0.0))
+        api_key = os.environ.get('OPENWEATHER_API_KEY')
+        if not api_key:
+            return jsonify({'error': 'Weather API key not set'}), 500
+        url = f'https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric'
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            return jsonify({'error': 'Failed to fetch weather data'}), 500
+        data = resp.json()
+        weather = {
+            'temp': data['main']['temp'],
+            'desc': data['weather'][0]['description'].title(),
+            'icon': data['weather'][0]['icon'],
+            'main': data['weather'][0]['main'],
+            'city': data.get('name', ''),
+            'country': data.get('sys', {}).get('country', '')
+        }
+        return jsonify(weather)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

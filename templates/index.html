@@ -495,6 +495,20 @@
             <p>Protecting our oceans, one detection at a time</p>
         </div>
 
+        <!-- Location Picker Section -->
+        <div class="control-card" style="margin-bottom: 30px; max-width: 100%;">
+            <h3>📍 Detection Location</h3>
+            <div id="map" style="width: 100%; height: 300px; border-radius: 10px; margin-bottom: 10px;"></div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label for="latInput">Latitude:</label>
+                <input type="number" id="latInput" step="any" style="width: 120px;">
+                <label for="lngInput">Longitude:</label>
+                <input type="number" id="lngInput" step="any" style="width: 120px;">
+                <button class="btn" id="setLocationBtn" type="button">Set Location</button>
+            </div>
+            <small>Click on the map or enter coordinates to set the detection location.</small>
+        </div>
+
         <div class="controls-section">
             <div class="control-card">
                 <h3>📹 Upload Video</h3>
@@ -559,6 +573,20 @@
                     🎬 Recreate Video with Detections
                 </button>
             </div>
+            <!-- Detection Location Map -->
+            <div id="resultsMap" style="width: 100%; height: 300px; border-radius: 10px; margin-bottom: 20px; display: none;"></div>
+            <!-- Weather Card -->
+            <div id="weatherCard" style="display:none; width:340px; margin:0 auto 30px auto; padding:24px; border-radius:20px; background:rgba(255,255,255,0.15); box-shadow:0 8px 32px 0 rgba(31,38,135,0.37); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.18); text-align:center; position:relative;">
+                <div id="weather3dIcon" style="font-size:64px; margin-bottom:10px;"></div>
+                <div style="font-size:2rem; font-weight:bold;" id="weatherTemp"></div>
+                <div style="font-size:1.1rem; margin-bottom:6px;" id="weatherDesc"></div>
+                <div style="font-size:0.95rem; color:#87ceeb;" id="weatherLoc"></div>
+            </div>
+            <!-- Detection Statistics Dashboard -->
+            <div id="statsDashboard" style="width: 100%; max-width: 600px; margin: 0 auto 30px auto; display: none;">
+                <h3 style="color:#87ceeb; text-align:center; margin-bottom:10px;">📊 Detection Statistics</h3>
+                <canvas id="classBreakdownChart" style="background:rgba(255,255,255,0.05); border-radius:10px;"></canvas>
+            </div>
             <div id="loading" class="loading" style="display: none;">
                 <div class="spinner"></div>
                 <p>Processing video frames...</p>
@@ -568,6 +596,7 @@
         </div>
     </div>
 
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}"></script>
     <script>
         let videoStream = null;
         let webcamInterval = null;
@@ -693,6 +722,9 @@
             formData.append('frame_skip', frameSkipSlider.value);
             formData.append('confidence_threshold', confidenceSlider.value);
             formData.append('max_detections', maxDetectionsSlider.value);
+            // Add location
+            formData.append('latitude', selectedLocation.lat);
+            formData.append('longitude', selectedLocation.lng);
 
             try {
                 const response = await fetch('/upload_video', {
@@ -741,6 +773,15 @@
                 
                 framesGrid.appendChild(frameCard);
             });
+            // Show detection location map
+            if (result.latitude !== undefined && result.longitude !== undefined) {
+                showResultsMap(result.latitude, result.longitude, result.frames);
+                fetchWeather(result.latitude, result.longitude);
+            }
+            // Show statistics dashboard
+            if (result.class_breakdown) {
+                showStatsDashboard(result.class_breakdown);
+            }
         }
 
         // Webcam functionality
@@ -817,7 +858,9 @@
                     body: JSON.stringify({ 
                         frame: frameData,
                         confidence_threshold: confidenceSlider.value,
-                        max_detections: maxDetectionsSlider.value
+                        max_detections: maxDetectionsSlider.value,
+                        latitude: selectedLocation.lat,
+                        longitude: selectedLocation.lng
                     })
                 });
                 
@@ -930,10 +973,185 @@
             }, 5000);
         }
 
+        let selectedLocation = { lat: 0, lng: 0 };
+
+        function initMap() {
+            const defaultLoc = { lat: 20.0, lng: 0.0 };
+            const map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLoc,
+                zoom: 2,
+                styles: [
+                    { featureType: 'water', stylers: [{ color: '#006994' }] },
+                    { featureType: 'landscape', stylers: [{ color: '#003366' }] },
+                    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'road', stylers: [{ visibility: 'off' }] }
+                ]
+            });
+            let marker = new google.maps.Marker({
+                position: defaultLoc,
+                map: map,
+                draggable: true
+            });
+            // Update on map click
+            map.addListener('click', function(e) {
+                marker.setPosition(e.latLng);
+                updateLocationInputs(e.latLng.lat(), e.latLng.lng());
+            });
+            // Update on marker drag
+            marker.addListener('dragend', function(e) {
+                updateLocationInputs(e.latLng.lat(), e.latLng.lng());
+            });
+            // Set location from input
+            document.getElementById('setLocationBtn').onclick = function() {
+                const lat = parseFloat(document.getElementById('latInput').value);
+                const lng = parseFloat(document.getElementById('lngInput').value);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const pos = { lat, lng };
+                    marker.setPosition(pos);
+                    map.setCenter(pos);
+                    selectedLocation = pos;
+                }
+            };
+            // Initialize input fields
+            updateLocationInputs(defaultLoc.lat, defaultLoc.lng);
+        }
+        function updateLocationInputs(lat, lng) {
+            document.getElementById('latInput').value = lat;
+            document.getElementById('lngInput').value = lng;
+            selectedLocation = { lat, lng };
+        }
+        window.initMap = initMap;
+
+        function showResultsMap(lat, lng, frames) {
+            const mapDiv = document.getElementById('resultsMap');
+            mapDiv.style.display = 'block';
+            // Remove previous map if any
+            mapDiv.innerHTML = '';
+            // Calculate total detections
+            let totalDetections = 0;
+            let classCounts = {};
+            frames.forEach(frame => {
+                totalDetections += frame.detections;
+                // Optionally, breakdown by type if available in frame (not implemented here)
+            });
+            // Create map
+            const map = new google.maps.Map(mapDiv, {
+                center: { lat: lat, lng: lng },
+                zoom: 8,
+                styles: [
+                    { featureType: 'water', stylers: [{ color: '#006994' }] },
+                    { featureType: 'landscape', stylers: [{ color: '#003366' }] },
+                    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'road', stylers: [{ visibility: 'off' }] }
+                ]
+            });
+            // Add marker
+            const marker = new google.maps.Marker({
+                position: { lat: lat, lng: lng },
+                map: map,
+                title: 'Detection Location'
+            });
+            // Info window
+            const infoWindow = new google.maps.InfoWindow({
+                content: `<div style='color:#003366;'><b>Detection Location</b><br>Total Trash Detected: ${totalDetections}</div>`
+            });
+            marker.addListener('click', function() {
+                infoWindow.open(map, marker);
+            });
+            // Open by default
+            infoWindow.open(map, marker);
+        }
+
+        async function fetchWeather(lat, lng) {
+            const card = document.getElementById('weatherCard');
+            card.style.display = 'none';
+            try {
+                const resp = await fetch(`/weather?lat=${lat}&lon=${lng}`);
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                // Set weather info
+                document.getElementById('weatherTemp').textContent = `${Math.round(data.temp)}°C`;
+                document.getElementById('weatherDesc').textContent = data.desc;
+                document.getElementById('weatherLoc').textContent = `${data.city ? data.city + ', ' : ''}${data.country}`;
+                // 3D/animated icon
+                setWeather3dIcon(data.icon, data.main);
+                card.style.display = 'block';
+            } catch (e) {
+                card.style.display = 'none';
+            }
+        }
+
+        function setWeather3dIcon(icon, main) {
+            const iconDiv = document.getElementById('weather3dIcon');
+            // Use animated SVGs for a 3D effect (simple version)
+            // You can expand this with more sophisticated SVGs or Lottie animations
+            let html = '';
+            switch(main.toLowerCase()) {
+                case 'clear':
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="18" fill="#FFD93B"><animate attributeName="r" values="18;20;18" dur="2s" repeatCount="indefinite"/></circle></svg>`;
+                    break;
+                case 'clouds':
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="40" rx="18" ry="10" fill="#B0C4DE"><animate attributeName="rx" values="18;20;18" dur="2s" repeatCount="indefinite"/></ellipse></svg>`;
+                    break;
+                case 'rain':
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="40" rx="18" ry="10" fill="#B0C4DE"/><line x1="24" y1="50" x2="24" y2="60" stroke="#00BFFF" stroke-width="4"><animate attributeName="y1" values="50;60;50" dur="1s" repeatCount="indefinite"/></line><line x1="40" y1="50" x2="40" y2="60" stroke="#00BFFF" stroke-width="4"><animate attributeName="y1" values="50;60;50" dur="1s" repeatCount="indefinite"/></line></svg>`;
+                    break;
+                case 'thunderstorm':
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="40" rx="18" ry="10" fill="#B0C4DE"/><polygon points="30,50 36,50 32,60" fill="#FFD93B"><animate attributeName="points" values="30,50 36,50 32,60;32,52 38,52 34,62;30,50 36,50 32,60" dur="1s" repeatCount="indefinite"/></polygon></svg>`;
+                    break;
+                case 'snow':
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="40" rx="18" ry="10" fill="#B0C4DE"/><text x="32" y="58" text-anchor="middle" font-size="32" fill="#fff">❄️</text></svg>`;
+                    break;
+                default:
+                    html = `<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="18" fill="#B0C4DE"/></svg>`;
+            }
+            iconDiv.innerHTML = html;
+        }
+
+        function showStatsDashboard(classBreakdown) {
+            const statsDiv = document.getElementById('statsDashboard');
+            statsDiv.style.display = 'block';
+            // Prepare data
+            const labels = Object.keys(classBreakdown);
+            const data = Object.values(classBreakdown);
+            // Destroy previous chart if any
+            if (window.classBreakdownChartObj) {
+                window.classBreakdownChartObj.destroy();
+            }
+            const ctx = document.getElementById('classBreakdownChart').getContext('2d');
+            window.classBreakdownChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Count',
+                        data: data,
+                        backgroundColor: '#87ceeb',
+                        borderColor: '#006994',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             showStatus('Welcome to Underwater Trash Detection System!', 'success');
+            if (typeof google !== 'undefined') {
+                initMap();
+            }
         });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html> 
