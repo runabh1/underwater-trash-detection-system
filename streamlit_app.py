@@ -202,24 +202,19 @@ with st.expander("🔧 Debug Information"):
     if st.button("🔄 Refresh Debug Info"):
         st.rerun()
 
-# Get user location via IP geolocation (only on first load)
-def get_ip_location():
-    try:
-        resp = requests.get('https://ipinfo.io/json')
-        if resp.status_code == 200:
-            data = resp.json()
-            if 'loc' in data:
-                lat_str, lon_str = data['loc'].split(',')
-                return float(lat_str), float(lon_str)
-    except Exception as e:
-        pass
-    return 20.0, 0.0  # Default fallback
+# Accurate geolocation using streamlit-js-eval
+try:
+    from streamlit_js_eval import streamlit_js_eval
+    JS_EVAL_AVAILABLE = True
+except ImportError:
+    JS_EVAL_AVAILABLE = False
 
-if 'location_initialized' not in st.session_state:
-    lat, lon = get_ip_location()
-    st.session_state['latitude'] = lat
-    st.session_state['longitude'] = lon
-    st.session_state['location_initialized'] = True
+if JS_EVAL_AVAILABLE:
+    loc = streamlit_js_eval(js_expressions="navigator.geolocation.getCurrentPosition((pos) => [pos.coords.latitude, pos.coords.longitude])", key="getloc")
+    if loc and isinstance(loc, list) and len(loc) == 2:
+        st.session_state['latitude'] = loc[0]
+        st.session_state['longitude'] = loc[1]
+        st.session_state['location_initialized'] = True
 
 # Sidebar
 with st.sidebar:
@@ -279,6 +274,10 @@ with st.sidebar:
         st.metric("Avg Detections/Frame", f"{total_detections/len(st.session_state.processed_frames):.1f}")
 
     st.markdown("### 📍 Detection Location")
+    if JS_EVAL_AVAILABLE:
+        st.info("Using your browser's location for accurate geotagging.")
+    else:
+        st.warning("Install streamlit-js-eval for accurate geolocation: pip install streamlit-js-eval")
     lat = st.number_input("Latitude", value=st.session_state['latitude'], format="%.6f", key="latitude")
     lon = st.number_input("Longitude", value=st.session_state['longitude'], format="%.6f", key="longitude")
     st.session_state['location'] = {'lat': lat, 'lon': lon}
