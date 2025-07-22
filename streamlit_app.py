@@ -155,11 +155,35 @@ if 'processed_frames_for_video' not in st.session_state:
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
 
-# Initialize session state for location
-if 'latitude' not in st.session_state:
-    st.session_state['latitude'] = 20.0
-if 'longitude' not in st.session_state:
-    st.session_state['longitude'] = 0.0
+# Robust location initialization: browser geolocation, then IP, then default
+try:
+    from streamlit_js_eval import streamlit_js_eval
+    JS_EVAL_AVAILABLE = True
+except ImportError:
+    JS_EVAL_AVAILABLE = False
+
+def get_ip_location():
+    try:
+        resp = requests.get('https://ipinfo.io/json')
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'loc' in data:
+                lat_str, lon_str = data['loc'].split(',')
+                return float(lat_str), float(lon_str)
+    except Exception:
+        pass
+    return 20.5937, 78.9629  # Default: India
+
+if 'latitude' not in st.session_state or 'longitude' not in st.session_state:
+    lat, lon = None, None
+    if JS_EVAL_AVAILABLE:
+        loc = streamlit_js_eval(js_expressions="navigator.geolocation.getCurrentPosition((pos) => [pos.coords.latitude, pos.coords.longitude])", key="getloc")
+        if loc and isinstance(loc, list) and len(loc) == 2:
+            lat, lon = loc[0], loc[1]
+    if lat is None or lon is None:
+        lat, lon = get_ip_location()
+    st.session_state['latitude'] = lat
+    st.session_state['longitude'] = lon
 
 # Initialize model in session state
 if "model" not in st.session_state or st.session_state.model is None:
@@ -207,20 +231,6 @@ with st.expander("🔧 Debug Information"):
     
     if st.button("🔄 Refresh Debug Info"):
         st.rerun()
-
-# Accurate geolocation using streamlit-js-eval
-try:
-    from streamlit_js_eval import streamlit_js_eval
-    JS_EVAL_AVAILABLE = True
-except ImportError:
-    JS_EVAL_AVAILABLE = False
-
-if JS_EVAL_AVAILABLE:
-    loc = streamlit_js_eval(js_expressions="navigator.geolocation.getCurrentPosition((pos) => [pos.coords.latitude, pos.coords.longitude])", key="getloc")
-    if loc and isinstance(loc, list) and len(loc) == 2:
-        st.session_state['latitude'] = loc[0]
-        st.session_state['longitude'] = loc[1]
-        st.session_state['location_initialized'] = True
 
 # Sidebar
 with st.sidebar:
@@ -281,7 +291,7 @@ with st.sidebar:
 
     st.markdown("### 📍 Detection Location")
     if JS_EVAL_AVAILABLE:
-        st.info("Using your browser's location for accurate geotagging.")
+        st.info("Using your browser's location for accurate geotagging (if allowed). If denied, will use IP location or default.")
     else:
         st.warning("Install streamlit-js-eval for accurate geolocation: pip install streamlit-js-eval")
     lat = st.number_input("Latitude", value=st.session_state['latitude'], format="%.6f", key="latitude")
@@ -497,7 +507,7 @@ with tab3:
     st.markdown("#### 🌦️ Weather at Detection Location")
     weather_api_key = os.environ.get('OPENWEATHER_API_KEY') or st.secrets.get('OPENWEATHER_API_KEY', None)
     weather_data = None
-    if weather_api_key:
+    if weather_api_key and location['lat'] and location['lon']:
         try:
             resp = requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat={location["lat"]}&lon={location["lon"]}&appid={weather_api_key}&units=metric')
             if resp.status_code == 200:
@@ -510,6 +520,8 @@ with tab3:
                     'city': data.get('name', ''),
                     'country': data.get('sys', {}).get('country', '')
                 }
+            else:
+                st.warning(f"Weather API error: {resp.status_code} {resp.text}")
         except Exception as e:
             st.warning(f"Could not fetch weather: {e}")
     if weather_data:
@@ -522,7 +534,7 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("Weather data not available. Check your API key in .env or Streamlit secrets.")
+        st.info("Weather data not available. Check your API key, location, or try allowing location access in your browser.")
     
     if not st.session_state.processed_frames:
         st.info("No processed frames yet. Upload a video or use live detection to see results.")
