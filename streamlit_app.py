@@ -202,6 +202,25 @@ with st.expander("🔧 Debug Information"):
     if st.button("🔄 Refresh Debug Info"):
         st.rerun()
 
+# Get user location via IP geolocation (only on first load)
+def get_ip_location():
+    try:
+        resp = requests.get('https://ipinfo.io/json')
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'loc' in data:
+                lat_str, lon_str = data['loc'].split(',')
+                return float(lat_str), float(lon_str)
+    except Exception as e:
+        pass
+    return 20.0, 0.0  # Default fallback
+
+if 'location_initialized' not in st.session_state:
+    lat, lon = get_ip_location()
+    st.session_state['latitude'] = lat
+    st.session_state['longitude'] = lon
+    st.session_state['location_initialized'] = True
+
 # Sidebar
 with st.sidebar:
     st.markdown("### 🤖 Model Status")
@@ -260,8 +279,8 @@ with st.sidebar:
         st.metric("Avg Detections/Frame", f"{total_detections/len(st.session_state.processed_frames):.1f}")
 
     st.markdown("### 📍 Detection Location")
-    lat = st.number_input("Latitude", value=20.0, format="%.6f", key="latitude")
-    lon = st.number_input("Longitude", value=0.0, format="%.6f", key="longitude")
+    lat = st.number_input("Latitude", value=st.session_state['latitude'], format="%.6f", key="latitude")
+    lon = st.number_input("Longitude", value=st.session_state['longitude'], format="%.6f", key="longitude")
     st.session_state['location'] = {'lat': lat, 'lon': lon}
 
 # Main content
