@@ -155,6 +155,12 @@ if 'processed_frames_for_video' not in st.session_state:
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
 
+# Initialize session state for location
+if 'latitude' not in st.session_state:
+    st.session_state['latitude'] = 20.0
+if 'longitude' not in st.session_state:
+    st.session_state['longitude'] = 0.0
+
 # Initialize model in session state
 if "model" not in st.session_state or st.session_state.model is None:
     st.session_state.model = load_model()
