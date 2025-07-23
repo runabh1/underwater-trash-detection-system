@@ -622,11 +622,14 @@ with tab3:
             st.markdown("**Original Video**")
             st.video(st.session_state['original_video_path'])
         with col2:
-            st.markdown("**Detected Video**")
-            if st.session_state['detected_video_bytes']:
-                st.video(st.session_state['detected_video_bytes'])
-            else:
-                st.warning("Detected video is empty or could not be read.")
+            st.markdown("**Detected Video (Download Only)**")
+            st.info("Browser playback is not supported. Please download and play in VLC or another player.")
+            st.download_button(
+                label="Download Detected Video",
+                data=st.session_state['detected_video_bytes'],
+                file_name="detected_trash_video.mp4",
+                mime="video/mp4"
+            )
 
     # Trash type breakdown dashboard
     class_counts = st.session_state.get('class_counts', {})
