@@ -160,6 +160,8 @@ if 'original_video_path' not in st.session_state:
     st.session_state['original_video_path'] = None
 if 'detected_video_path' not in st.session_state:
     st.session_state['detected_video_path'] = None
+if 'detected_video_bytes' not in st.session_state:
+    st.session_state['detected_video_bytes'] = None
 
 # Robust location initialization: browser geolocation, then IP, then default
 try:
@@ -593,6 +595,10 @@ with tab3:
                             st.session_state.video_properties['height']
                         )
                         st.session_state['detected_video_path'] = video_path_detected
+                        # Read detected video as bytes for playback
+                        if video_path_detected:
+                            with open(video_path_detected, 'rb') as f:
+                                st.session_state['detected_video_bytes'] = f.read()
         
         with col2:
             if st.button("🗑️ Clear Results"):
@@ -602,7 +608,7 @@ with tab3:
                 st.rerun()
 
     # Show original and detected videos side by side if available
-    if st.session_state.get('original_video_path') and st.session_state.get('detected_video_path'):
+    if st.session_state.get('original_video_path') and st.session_state.get('detected_video_bytes'):
         st.markdown("#### 🎬 Video Comparison")
         col1, col2 = st.columns(2)
         with col1:
@@ -610,7 +616,7 @@ with tab3:
             st.video(st.session_state['original_video_path'])
         with col2:
             st.markdown("**Detected Video**")
-            st.video(st.session_state['detected_video_path'])
+            st.video(st.session_state['detected_video_bytes'])
 
     # Trash type breakdown dashboard
     if st.session_state.processed_frames:
