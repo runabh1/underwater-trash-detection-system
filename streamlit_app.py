@@ -116,24 +116,17 @@ def load_model():
         st.error(f"❌ Error loading model: {e}")
         return None
 
-def convert_to_h264(input_path, output_path):
-    cmd = [
-        'ffmpeg', '-y', '-i', input_path,
-        '-vcodec', 'libx264', '-acodec', 'aac', output_path
-    ]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return output_path
-
+# Remove FFmpeg usage. Use OpenCV only (AVI/XVID)
 def recreate_video_from_frames(frames, fps, width, height):
-    """Recreate video from processed frames and convert to H.264 for browser playback"""
+    """Recreate video from processed frames using OpenCV only (AVI/XVID)."""
     if not frames:
         return None
     try:
         # Create temporary video file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.avi') as tmp_video:
             video_path = tmp_video.name
         # Initialize video writer
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
         out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
         # Write frames to video
         for frame_data in frames:
@@ -141,11 +134,8 @@ def recreate_video_from_frames(frames, fps, width, height):
             out.write(frame_cv)
         out.release()
         time.sleep(0.1)  # Ensure file is flushed
-        # Convert to H.264 for browser compatibility
-        h264_path = video_path.replace('.mp4', '_h264.mp4')
-        convert_to_h264(video_path, h264_path)
-        if os.path.exists(h264_path) and os.path.getsize(h264_path) > 0:
-            return h264_path
+        if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+            return video_path
         else:
             return None
     except Exception as e:
