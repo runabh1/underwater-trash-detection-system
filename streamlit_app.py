@@ -8,6 +8,7 @@ import io
 import time
 import requests
 import altair as alt
+import subprocess
 # Import trash classes with error handling
 try:
     from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
@@ -115,8 +116,16 @@ def load_model():
         st.error(f"❌ Error loading model: {e}")
         return None
 
+def convert_to_h264(input_path, output_path):
+    cmd = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-vcodec', 'libx264', '-acodec', 'aac', output_path
+    ]
+    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return output_path
+
 def recreate_video_from_frames(frames, fps, width, height):
-    """Recreate video from processed frames"""
+    """Recreate video from processed frames and convert to H.264 for browser playback"""
     if not frames:
         return None
     try:
@@ -132,9 +141,11 @@ def recreate_video_from_frames(frames, fps, width, height):
             out.write(frame_cv)
         out.release()
         time.sleep(0.1)  # Ensure file is flushed
-        # Only return path if file size > 0
-        if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
-            return video_path
+        # Convert to H.264 for browser compatibility
+        h264_path = video_path.replace('.mp4', '_h264.mp4')
+        convert_to_h264(video_path, h264_path)
+        if os.path.exists(h264_path) and os.path.getsize(h264_path) > 0:
+            return h264_path
         else:
             return None
     except Exception as e:
