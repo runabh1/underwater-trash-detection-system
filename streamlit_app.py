@@ -118,13 +118,13 @@ def load_model():
 # Remove any FFmpeg and subprocess references. Use only OpenCV (AVI/XVID) for detected video creation.
 # (No import subprocess, no convert_to_h264, no ffmpeg usage)
 def recreate_video_from_frames(frames, fps, width, height):
-    """Recreate video from processed frames using OpenCV only (AVI/XVID)."""
+    """Recreate video from processed frames using OpenCV only (MP4V/MP4)."""
     if not frames:
         return None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.avi') as tmp_video:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
             video_path = tmp_video.name
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
         for frame_data in frames:
             frame_cv = cv2.cvtColor(np.array(frame_data), cv2.COLOR_RGB2BGR)
