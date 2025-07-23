@@ -155,6 +155,12 @@ if 'processed_frames_for_video' not in st.session_state:
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
 
+# Add to session state for original and detected video paths
+if 'original_video_path' not in st.session_state:
+    st.session_state['original_video_path'] = None
+if 'detected_video_path' not in st.session_state:
+    st.session_state['detected_video_path'] = None
+
 # Robust location initialization: browser geolocation, then IP, then default
 try:
     from streamlit_js_eval import streamlit_js_eval
@@ -311,10 +317,11 @@ with tab1:
     )
     
     if uploaded_file is not None:
-        # Save uploaded file temporarily
+        # Save uploaded file temporarily and keep path for playback
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             video_path = tmp_file.name
+            st.session_state['original_video_path'] = video_path
         
         if st.button("🔍 Process Video", type="primary"):
             if not OPENCV_AVAILABLE:
@@ -579,31 +586,13 @@ with tab3:
             if st.button("🎬 Recreate Video", type="primary", disabled=not st.session_state.processed_frames_for_video):
                 if st.session_state.processed_frames_for_video and st.session_state.video_properties:
                     with st.spinner("Creating video with detections..."):
-                        video_path = recreate_video_from_frames(
+                        video_path_detected = recreate_video_from_frames(
                             st.session_state.processed_frames_for_video,
                             st.session_state.video_properties['fps'],
                             st.session_state.video_properties['width'],
                             st.session_state.video_properties['height']
                         )
-                        
-                        if video_path:
-                            # Read the video file and provide download
-                            with open(video_path, 'rb') as video_file:
-                                video_bytes = video_file.read()
-                            
-                            st.download_button(
-                                label="📥 Download Video with Detections",
-                                data=video_bytes,
-                                file_name="detected_trash_video.mp4",
-                                mime="video/mp4"
-                            )
-                            
-                            # Clean up temporary file
-                            os.unlink(video_path)
-                            
-                            st.success("✅ Video created successfully! Click the download button above to save it.")
-                        else:
-                            st.error("❌ Failed to create video.")
+                        st.session_state['detected_video_path'] = video_path_detected
         
         with col2:
             if st.button("🗑️ Clear Results"):
@@ -611,6 +600,17 @@ with tab3:
                 st.session_state.processed_frames_for_video = []
                 st.session_state.video_properties = {}
                 st.rerun()
+
+    # Show original and detected videos side by side if available
+    if st.session_state.get('original_video_path') and st.session_state.get('detected_video_path'):
+        st.markdown("#### 🎬 Video Comparison")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Original Video**")
+            st.video(st.session_state['original_video_path'])
+        with col2:
+            st.markdown("**Detected Video**")
+            st.video(st.session_state['detected_video_path'])
 
     # Trash type breakdown dashboard
     if st.session_state.processed_frames:
