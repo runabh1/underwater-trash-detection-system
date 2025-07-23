@@ -116,7 +116,7 @@ def load_model():
         st.error(f"❌ Error loading model: {e}")
         return None
 
-FFMPEG_PATH = r'C:\Users\LENOVO\ffmpeg\ffmpeg-7.1.1-essentials_build\bin\ffmpeg.exe'
+FFMPEG_PATH = r'C:\Users\LENOVO\ffmpeg-7.1.1-essentials_build\bin\ffmpeg.exe'
 
 def convert_to_h264(input_path, output_path):
     cmd = [
