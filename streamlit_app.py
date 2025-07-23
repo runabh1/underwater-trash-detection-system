@@ -155,6 +155,9 @@ if 'processed_frames_for_video' not in st.session_state:
 if 'video_properties' not in st.session_state:
     st.session_state.video_properties = {}
 
+if 'class_counts' not in st.session_state:
+    st.session_state['class_counts'] = {}
+
 # Add to session state for original and detected video paths
 if 'original_video_path' not in st.session_state:
     st.session_state['original_video_path'] = None
@@ -369,6 +372,7 @@ with tab1:
                             
                             # Process results
                             detections = 0
+                            class_counts = {}
                             for result in results:
                                 boxes = result.boxes
                                 if boxes is not None:
@@ -395,6 +399,7 @@ with tab1:
                                                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                                         
                                         detections += 1
+                                        class_counts[class_name] = class_counts.get(class_name, 0) + 1
                             
                             # Convert frame to PIL Image
                             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -462,6 +467,7 @@ with tab2:
                     
                     # Process results
                     detections = 0
+                    class_counts = {}
                     for result in results:
                         boxes = result.boxes
                         if boxes is not None:
@@ -488,6 +494,7 @@ with tab2:
                                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                                 
                                 detections += 1
+                                class_counts[class_name] = class_counts.get(class_name, 0) + 1
                     
                     # Convert back to PIL for display
                     result_image = cv2.cvtColor(image_cv, cv2.COLOR_BGR2RGB)
@@ -619,26 +626,17 @@ with tab3:
             st.video(st.session_state['detected_video_bytes'])
 
     # Trash type breakdown dashboard
-    if st.session_state.processed_frames:
-        class_counts = {}
-        for frame in st.session_state.processed_frames:
-            # You may want to store class info in processed_frames for more detail
-            # For now, we assume all detections are of the same class (if not, update this logic)
-            # Here, you can extend to store and count per class if available
-            pass  # Placeholder for per-class logic
-        # Example: If you store class info, fill class_counts here
-        # class_counts = {'Plastic': 10, 'Can': 5, ...}
-        # For demo, show a dummy chart if no data
-        if class_counts:
-            chart_data = [{'class': k, 'count': v} for k, v in class_counts.items()]
-            chart = alt.Chart(alt.Data(values=chart_data)).mark_bar().encode(
-                x='class:N',
-                y='count:Q',
-                color=alt.Color('class:N', legend=None)
-            ).properties(title='Trash Type Breakdown', width=400)
-            st.altair_chart(chart, use_container_width=True)
-        else:
-            st.info('No trash type breakdown available. Update detection logic to store per-class info.')
+    class_counts = st.session_state.get('class_counts', {})
+    if class_counts:
+        chart_data = [{'class': k, 'count': v} for k, v in class_counts.items()]
+        chart = alt.Chart(alt.Data(values=chart_data)).mark_bar().encode(
+            x='class:N',
+            y='count:Q',
+            color=alt.Color('class:N', legend=None)
+        ).properties(title='Trash Type Breakdown', width=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        st.info('No trash type breakdown available. Process a video to see per-class stats.')
 
 # Footer
 st.markdown("---")
