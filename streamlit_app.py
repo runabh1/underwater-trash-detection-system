@@ -8,7 +8,6 @@ import io
 import time
 import requests
 import altair as alt
-import subprocess
 # Import trash classes with error handling
 try:
     from trash_classes import get_class_name_short, get_class_color, update_mapping_from_model
@@ -116,24 +115,22 @@ def load_model():
         st.error(f"❌ Error loading model: {e}")
         return None
 
-# Remove FFmpeg usage. Use OpenCV only (AVI/XVID)
+# Remove any FFmpeg and subprocess references. Use only OpenCV (AVI/XVID) for detected video creation.
+# (No import subprocess, no convert_to_h264, no ffmpeg usage)
 def recreate_video_from_frames(frames, fps, width, height):
     """Recreate video from processed frames using OpenCV only (AVI/XVID)."""
     if not frames:
         return None
     try:
-        # Create temporary video file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.avi') as tmp_video:
             video_path = tmp_video.name
-        # Initialize video writer
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
-        # Write frames to video
         for frame_data in frames:
             frame_cv = cv2.cvtColor(np.array(frame_data), cv2.COLOR_RGB2BGR)
             out.write(frame_cv)
         out.release()
-        time.sleep(0.1)  # Ensure file is flushed
+        time.sleep(0.1)
         if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
             return video_path
         else:
