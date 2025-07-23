@@ -119,25 +119,24 @@ def recreate_video_from_frames(frames, fps, width, height):
     """Recreate video from processed frames"""
     if not frames:
         return None
-    
     try:
         # Create temporary video file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
             video_path = tmp_video.name
-        
         # Initialize video writer
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
-        
         # Write frames to video
         for frame_data in frames:
-            # Convert PIL image back to OpenCV format
             frame_cv = cv2.cvtColor(np.array(frame_data), cv2.COLOR_RGB2BGR)
             out.write(frame_cv)
-        
         out.release()
-        return video_path
-    
+        time.sleep(0.1)  # Ensure file is flushed
+        # Only return path if file size > 0
+        if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+            return video_path
+        else:
+            return None
     except Exception as e:
         st.error(f"Error creating video: {e}")
         return None
@@ -603,9 +602,12 @@ with tab3:
                         )
                         st.session_state['detected_video_path'] = video_path_detected
                         # Read detected video as bytes for playback
-                        if video_path_detected:
+                        if video_path_detected and os.path.getsize(video_path_detected) > 0:
                             with open(video_path_detected, 'rb') as f:
                                 st.session_state['detected_video_bytes'] = f.read()
+                        else:
+                            st.session_state['detected_video_bytes'] = None
+                            st.error('Detected video could not be created or is empty.')
         
         with col2:
             if st.button("🗑️ Clear Results"):
@@ -623,7 +625,10 @@ with tab3:
             st.video(st.session_state['original_video_path'])
         with col2:
             st.markdown("**Detected Video**")
-            st.video(st.session_state['detected_video_bytes'])
+            if st.session_state['detected_video_bytes']:
+                st.video(st.session_state['detected_video_bytes'])
+            else:
+                st.warning("Detected video is empty or could not be read.")
 
     # Trash type breakdown dashboard
     class_counts = st.session_state.get('class_counts', {})
