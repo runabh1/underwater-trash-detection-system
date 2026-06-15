@@ -5,4 +5,5 @@ streamlit
 streamlit-js-eval
 torchvision>=0.20.0
 Pillow>=10.0.0
+torch
 # ...other packages if needed... 
